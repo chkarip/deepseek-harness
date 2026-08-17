@@ -10,7 +10,7 @@ import {
   type SlotScope, type StoredEntry, type Translate,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import {
-  HostContext, SessionMaybeProvider, SessionProvider, SlotAssemblyError, maybeObservableHook,
+  HostContext, SessionMaybeProvider, SessionProvider, SessionScope, SlotAssemblyError, maybeObservableHook,
   observableHook, projectionHook, useHost, useSessionMaybeProvideInfo,
 } from './session-provider.tsx'
 
@@ -666,6 +666,13 @@ function SlotOutlet({ slotKey, ownerProps, opts }: {
   // bodies re-derive their `t` seat at the new revision (fresh identity).
   useLocaleRevision(host.locale)
   const sessionInfo = useSessionMaybeProvideInfo()
+  // Session override (RenderOpts.sessionId): the multi-pane seat renders this
+  // slot's entries against a specific session instead of the ambient current
+  // one. The override branches to a SessionScope so the whole subtree —
+  // strict entries, session-maybe adoption, and the inject factories — binds
+  // to the target session's standard kit; the unresolvable branch renders the
+  // slot's own fallback (empty pane until the session is listed/scoped).
+  const overrideId = opts?.sessionId
   // Anchor contract: every slot render site exposes a stable
   // `[data-slot="<key>"]` wrapper — the addressable seam dynamic styles
   // target — and `display:contents` keeps it layout-neutral. The wrapper
@@ -674,7 +681,16 @@ function SlotOutlet({ slotKey, ownerProps, opts }: {
   // never flickers with registration churn.
   return (
     <div data-slot={slotKey} style={ANCHOR_STYLE}>
-      {renderOutletContent(host, slotKey, ownerProps, opts, sessionInfo)}
+      {overrideId === undefined
+        ? renderOutletContent(host, slotKey, ownerProps, opts, sessionInfo)
+        : (
+          <SessionScope
+            sessionId={overrideId}
+            empty={() => <>{opts?.fallback ?? null}</>}
+          >
+            {renderOutletContent(host, slotKey, ownerProps, opts, sessionInfo, overrideId)}
+          </SessionScope>
+        )}
     </div>
   )
 }
@@ -686,13 +702,19 @@ function renderOutletContent(
   ownerProps: object,
   opts: (RenderOpts & ChainRenderOpts) | undefined,
   sessionInfo: SessionMaybeProvideInfo,
+  overrideSessionId?: string | undefined,
 ): ReactNode {
   const spec = host.specOf(slotKey)
   // Undeclared (or no-longer-declared) keys render empty: a declaring entry's
   // unload returns the slot to the undeclared state while retained elements
   // may still be mounted — natural empty, not an ownership failure.
   if (!spec) return null
-  const strictSessionAbsent = spec.scope === 'session' && sessionInfo.sessionId === undefined
+  // Under a session override the strict-absence gate keys off the TARGET
+  // session (the SessionScope wrapper guarantees its bundle resolved, so a
+  // strict slot below never sees an absent id); without one it keys off the
+  // ambient current session as before.
+  const effectiveSessionId = overrideSessionId === undefined ? sessionInfo.sessionId : overrideSessionId
+  const strictSessionAbsent = spec.scope === 'session' && effectiveSessionId === undefined
   if (strictSessionAbsent && (spec.kind !== 'chain' || !opts?.overlay)) {
     return <>{opts?.fallback ?? null}</>
   }

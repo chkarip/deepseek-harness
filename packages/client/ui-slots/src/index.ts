@@ -220,13 +220,23 @@ export type PropsRuntime<
       : object) &
   GlobalStandardProps
 
-/** renderSlot dispatch options: keyed dispatch key, list filtering, and empty fallback. */
+/** renderSlot dispatch options: keyed dispatch key, list filtering, empty fallback, and the session override. */
 export interface RenderOpts<EntryKey extends string = string> {
   entryKey?: EntryKey
   only?: string
   fallback?: ReactNode
   /** Type-erased runtime seat; PropsRenderSlots narrows or removes it per slot declaration. */
   hookContext?: unknown
+  /**
+   * Render this slot's entries against a specific session instead of the
+   * ambient current session: the outlet subtree binds to that session's
+   * standard kit (sessionId, useSession, useInput, stores) exactly as if it
+   * were current. A session that is neither listed nor already scoped renders
+   * the fallback/empty treatment until it resolves. Only meaningful for
+   * session/session-maybe scope slots; the multi-pane shell uses it to host
+   * several live conversations in one window.
+   */
+  sessionId?: string
 }
 
 /** renderSlotChain dispatch options. */

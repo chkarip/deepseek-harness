@@ -151,6 +151,7 @@ function makeHost() {
     sessions: {
       list,
       provideInfo: provide,
+      provideInfoOf: () => undefined,
     },
     workspaces: { list: workspaces },
   }

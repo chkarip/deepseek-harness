@@ -1,0 +1,188 @@
+/**
+ * One panel frame: header chrome (name, session chip + picker, summarize,
+ * close), the collapsible summary area, and the conversation body. Panels
+ * sit side-by-side (tiled) or one-at-a-time (tabbed) inside the workspace.
+ */
+.frame {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-base);
+}
+
+.frame:last-child {
+  border-right: none;
+}
+
+/* The focused panel (its session is current) gets a subtle accent edge. */
+.frameCurrent .header {
+  border-top: 2px solid var(--dsw-alias-state-business-primary);
+}
+
+.header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  border-top: 2px solid transparent;
+  min-width: 0;
+}
+
+.nameButton {
+  font: inherit;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nameButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.nameInput {
+  font: inherit;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 4px;
+  padding: 1px 4px;
+  width: 160px;
+}
+
+.sessionChip {
+  font: inherit;
+  font-size: 12px;
+  color: var(--dsw-alias-label-caption);
+  background: var(--dsw-alias-interactive-bg-hover);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 999px;
+  padding: 2px 10px;
+  cursor: pointer;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sessionChipEmpty {
+  color: var(--dsw-alias-label-tertiary);
+  border-style: dashed;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.summarizeButton {
+  font: inherit;
+  font-size: 12px;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.summarizeButton:hover:not(:disabled) {
+  border-color: var(--dsw-alias-border-l3);
+}
+
+.summarizeButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.closeButton {
+  font: inherit;
+  color: var(--dsw-alias-label-tertiary);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.closeButton:hover {
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.summaryArea {
+  flex: none;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-base);
+}
+
+.summaryStatus {
+  font-size: 12px;
+  color: var(--dsw-alias-label-caption);
+}
+
+.summaryError {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.summaryBlock {
+  font-size: 12px;
+}
+
+.summaryBlock summary {
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.summaryText {
+  margin: 4px 0 0;
+  color: var(--dsw-alias-label-secondary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.unavailable {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+  padding: 24px;
+  text-align: center;
+}
+
+.unavailableTitle {
+  font-weight: 600;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.unavailableHint {
+  font-size: 12px;
+}

@@ -158,3 +158,41 @@ export function SessionProvider({ empty, children }: SessionProviderProps) {
     </BindingContext.Provider>
   )
 }
+
+/** SessionScope props: the target session id, the unresolvable branch, and the body. */
+export interface SessionScopeProps {
+  /** The session whose standard kit the body binds to, regardless of current selection. */
+  sessionId: string
+  /** No-session body (also covers a session that is neither listed nor scoped). */
+  empty?: (() => ReactNode) | undefined
+  /** Body rendered under the target session's provide bundle; remounted per session id. */
+  children: ReactNode
+}
+
+/**
+ * Framework-wired per-session area for a SPECIFIC session id (the multi-pane
+ * seat; {@link SessionProvider} follows current selection instead). Resolves
+ * the target's standard-props bundle through the host's pure per-session
+ * face — the scope mints lazily on first resolution, so a session that is
+ * merely listed already renders — and re-resolves on every session-list
+ * change, so a pane appears the moment its session lands and empties when the
+ * session leaves. The body remounts under `key={sessionId}`, giving each
+ * target session a fresh subtree exactly like a selection switch does.
+ */
+export function SessionScope({ sessionId, empty, children }: SessionScopeProps) {
+  const host = useHost()
+  // The bundle's lifetime rides the session list (scopes mint and prune with
+  // list membership); this subscription re-renders the resolver whenever the
+  // list changes. The selector returns the list snapshot itself — uSES bails
+  // out of a constant-value selector, which would discard the fresh
+  // resolution. The hook is cached per source (observableHook), so the
+  // subscribe reference stays stable across renders.
+  observableHook(host.sessions.list)(list => list)
+  const info = host.sessions.provideInfoOf(sessionId)
+  if (info === undefined) return <>{empty?.() ?? null}</>
+  return (
+    <BindingContext.Provider value={info} key={sessionId}>
+      {children}
+    </BindingContext.Provider>
+  )
+}

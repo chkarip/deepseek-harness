@@ -9,9 +9,9 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  RpcResult, SessionId, SubagentAddress,
+  RpcResult, SessionId, SubagentAddress, WorkspaceId,
 } from '@deepseek-ai/dsh-api-remotes/client'
-import type { HostObservable, SessionMaybeProvideInfo } from '@deepseek-ai/dsh-client-ui-slots'
+import type { HostObservable, SessionMaybeProvideInfo, SessionProvideInfo } from '@deepseek-ai/dsh-client-ui-slots'
 import type { AgentContext } from '../agents/scope.ts'
 import type { SessionSearchResultItem } from '../sessions/manager.ts'
 import type {
@@ -39,6 +39,25 @@ export interface ISessions {
    * @param id - session id (must exist in the list; unknown ids fail loud).
    */
   open(id: SessionId): void
+  /**
+   * Open a session's event window WITHOUT changing the current selection —
+   * the multi-pane seat: a panel hosting a non-current session still receives
+   * its live stream (the window is what delivers events; selection is what
+   * stages it). Idempotent: an already-open window is untouched. Only listed
+   * sessions are eligible; an unknown id is a no-op.
+   * @param id - session id.
+   */
+  openWindow(id: SessionId): void
+  /**
+   * Birth a FRESH session on the host — the multi-pane "New conversation"
+   * path, distinct from the workspaces New Session flow's blank-session
+   * reuse: every call mints a new session. On resolution the session is in
+   * the list store and `binding(id)` resolves synchronously.
+   * @param opts - target workspace, working directory, or a caller-owned id.
+   * @returns the new session id.
+   * @throws {SessionCreateError} on business/transport failure.
+   */
+  create(opts?: { workspaceId?: WorkspaceId; cwd?: string; sessionId?: SessionId }): Promise<SessionId>
   /**
    * Open a healthy catalog child through its exact direct-parent address.
    * @param address - catalog-derived parent and child ids.
@@ -127,4 +146,13 @@ export interface ISessions {
    * @returns binding, or undefined for a session neither listed nor already scoped.
    */
   binding(id: SessionId): SessionBinding | undefined
+  /**
+   * Resolve one session's render-layer standard-props bundle (the multi-pane
+   * seat: the renderer renders a subtree against a specific session instead
+   * of the ambient current one). Pure resolution — render-safe; the scope
+   * mints lazily for any eligible session, as with {@link ISessions.binding}.
+   * @param id - session id.
+   * @returns the bundle, or undefined for a session neither listed nor already scoped.
+   */
+  provideInfo(id: SessionId): SessionProvideInfo | undefined
 }

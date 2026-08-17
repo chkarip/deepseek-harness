@@ -59,6 +59,10 @@ function mountFrame() {
   const renderSlot = ((key: string, owner: object) => {
     slotCalls.push({ key, props: owner })
     if (key === 'sidebar') return <div data-testid="sidebar-content" />
+    // The frame renders the center column through the 'panels' surface (the
+    // multi-panel workspace seat); the stub renders its seat as the center
+    // content, and the fallback 'conversation' call is recorded separately.
+    if (key === 'panels') return <div data-testid="center-content" />
     if (key === 'conversation') return <div data-testid="center-content" />
     if (key === 'details') return <div data-testid="details-content" />
     if (key === 'conversation.empty') return <div data-testid="empty-content" />
@@ -147,9 +151,15 @@ describe('AppFrame', () => {
     expect(getByTestId('center-content')).toBeTruthy()
     expect(getByTestId('details-content')).toBeTruthy()
     const keys = slotCalls.map(c => c.key)
+    // The center column is the panels surface; the frame hands its own bound
+    // conversation renderer down through the owner share and keeps the
+    // single-conversation fallback for the no-occupant case.
+    expect(keys).toContain('panels')
     expect(keys).toContain('conversation')
     expect(keys).toContain('details')
     expect(keys).not.toContain('conversation.empty')
+    const panelsProps = slotCalls.find(c => c.key === 'panels')!.props as { renderConversation?: unknown }
+    expect(typeof panelsProps.renderConversation).toBe('function')
     expect(slotCalls.find(c => c.key === 'conversation')!.props).toEqual({})
     expect(slotCalls.find(c => c.key === 'details')!.props).toEqual({})
   })

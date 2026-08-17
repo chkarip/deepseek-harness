@@ -18,6 +18,9 @@ export type {
 export { SlotOwnershipError, StaleAuthorizationError } from '@deepseek-ai/dsh-client-ui-slots'
 export { createSlotRenderer } from './scoped-slots.tsx'
 
-export { SessionProvider, SlotAssemblyError, type SessionProviderProps } from './session-provider.tsx'
+export {
+  SessionProvider, SessionScope, SlotAssemblyError,
+  type SessionProviderProps, type SessionScopeProps,
+} from './session-provider.tsx'
 
 export { useInvoke } from './use-invoke.ts'

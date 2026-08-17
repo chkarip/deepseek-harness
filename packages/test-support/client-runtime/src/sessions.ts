@@ -184,8 +184,8 @@ export class TestSessions implements ISessions {
 
   /** Calls observed on the service-level face, newest last. */
   readonly calls: {
-    method: 'open' | 'openSubagent' | 'setSubagentCatalogOpen' | 'refreshSubagents'
-      | 'clear' | 'search' | 'fork'
+    method: 'open' | 'openWindow' | 'openSubagent' | 'setSubagentCatalogOpen' | 'refreshSubagents'
+      | 'clear' | 'search' | 'fork' | 'create'
     args: unknown[]
   }[] = []
 
@@ -253,6 +253,44 @@ export class TestSessions implements ISessions {
         draft.ids.push(id)
         draft.byId[id] = summary
         if (opts?.current !== false) draft.current = id
+      })
+    })
+    return id
+  }
+
+  /**
+   * Birth a fresh blank session (the production `session.create` mirror; the
+   * multi-pane "New conversation" path calls it for a genuinely NEW session,
+   * never reusing a workspace's blank one). The synthetic id is stable and
+   * immediately listed.
+   * @param opts - optional workspace/cwd/sessionId (recorded; workspace/cwd
+   * land on the row summary).
+   * @returns the new session id.
+   */
+  async create(opts: { workspaceId?: unknown; cwd?: string; sessionId?: SessionId } = {}): Promise<SessionId> {
+    this.calls.push({ method: 'create', args: [opts] })
+    const id = opts.sessionId ?? `s-bench-${this.records.size + 1}` as SessionId
+    const summary: SessionSummary = {
+      id,
+      displayTitle: id,
+      running: false,
+      blank: true,
+      updatedAt: this.records.size + 1,
+      ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+    }
+    const snapshot = createSnapshotStore<ConversationSnapshot>(conversationSnapshot(id))
+    this.records.set(id, {
+      summary,
+      snapshot,
+      session: new FixtureSession(id, snapshot, {}),
+      scope: undefined,
+      scopeFiber: undefined,
+      provideInfo: undefined,
+    })
+    await this.stabilize(() => {
+      this.list.update((draft) => {
+        draft.ids.push(id)
+        draft.byId[id] = summary
       })
     })
     return id
@@ -411,6 +449,17 @@ export class TestSessions implements ISessions {
       draft.current = id
       draft.currentAddress = undefined
     })
+  }
+
+  /**
+   * Open a session's event window without changing selection (the multi-pane
+   * seat; fixture windows are implicit — the call is recorded for assertions
+   * and validated against the roster).
+   * @param id - session id.
+   */
+  openWindow(id: SessionId): void {
+    this.calls.push({ method: 'openWindow', args: [id] })
+    this.require(id)
   }
 
   /** Open an existing fixture through its catalog address. */

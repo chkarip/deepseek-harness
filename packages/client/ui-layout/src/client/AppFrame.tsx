@@ -20,7 +20,7 @@ import css from './AppFrame.module.css'
 /** Full composed props: runtime share + child-slot render share + store share. */
 export type AppFrameProps =
   & PropsRuntime<'root'>
-  & PropsRenderSlots<'sidebar' | 'conversation' | 'details' | 'shell.overlay'>
+  & PropsRenderSlots<'sidebar' | 'panels' | 'conversation' | 'details' | 'shell.overlay'>
   & PropsStore<ReturnType<typeof createLayoutStore>>
 
 /** Center column grid item (session-body building block). */
@@ -184,10 +184,20 @@ export function AppFrame({
       <>
         {/* Both column occupants stay at fixed tree positions from first
             paint — no loading gate: a bare status line reads worse than
-            the shell's own pending rendering. The conversation
-            is session-maybe; the strict details entry naturally renders
-            empty while no session is current. */}
-        <CenterColumn>{renderSlot('conversation', {})}</CenterColumn>
+            the shell's own pending rendering. The center column is the
+            panels surface (ui-panels' named multi-panel workspace; the
+            frame hands its bound conversation renderer down so each panel
+            hosts one full conversation); while no occupant is registered
+            the outlet falls back to the single current-session
+            conversation — exactly the pre-panels center column. The
+            strict details entry naturally renders empty while no session
+            is current. */}
+        <CenterColumn>
+          {renderSlot('panels', {
+            renderConversation: (sessionId) =>
+              renderSlot('conversation', {}, sessionId === undefined ? undefined : { sessionId }),
+          }, { fallback: renderSlot('conversation', {}) })}
+        </CenterColumn>
         <DetailsColumn>{renderSlot('details', {})}</DetailsColumn>
       </>
       <div className={css.overlayLayer} data-shell-overlay>

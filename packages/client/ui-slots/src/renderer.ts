@@ -171,6 +171,16 @@ export interface SlotRendererHost {
      * undefined while no current session resolves.
      */
     provideInfo: HostObservable<SessionMaybeProvideInfo>
+    /**
+     * Pure per-session resolution of one session's standard-props bundle (the
+     * multi-pane seat: {@link SessionScope} renders a subtree against a
+     * specific session instead of the ambient current one). Identity-stable
+     * per session and roster; undefined while the session is neither listed
+     * nor already scoped. Calling it may lazily mint the session's scope —
+     * render-safe, no staging or window side effects.
+     * @param id - session id.
+     */
+    provideInfoOf(id: string): SessionProvideInfo | undefined
   }
   /** Workspace-side standard-kit sources. */
   workspaces: {

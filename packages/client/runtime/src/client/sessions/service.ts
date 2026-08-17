@@ -374,6 +374,22 @@ export class SessionRuntime implements ISessions {
   }
 
   /**
+   * Open a session's event window without changing the current selection —
+   * the multi-pane seat (see {@link ISessions.openWindow}). Resolving the
+   * scope mints it lazily exactly as selection does; the window then streams
+   * into that session's own conversation snapshot while the stage stays put.
+   * Idempotent: `Session.open()` returns the existing window. An unknown or
+   * ineligible id resolves nothing (pure no-op — a pane bound to a stale id
+   * simply stays empty).
+   * @param id - listed session id.
+   */
+  openWindow(id: SessionId): void {
+    const record = this.resolve(id)
+    if (record === undefined) return
+    void record.session.open()
+  }
+
+  /**
    * Open a healthy catalog child through its direct-parent address.
    * @param address - catalog-derived parent and child ids.
    */
@@ -580,12 +596,15 @@ export class SessionRuntime implements ISessions {
   /**
    * Resolve one session's render-layer standard-props bundle (ctx never
    * enters the render layer; the renderer subscribes to
-   * {@link SessionRuntime.currentProvideInfo}). Pure resolution — render-safe:
-   * no staging, no window side effects (StrictMode double-invokes and
-   * concurrent discarded passes must stay free).
+   * {@link SessionRuntime.currentProvideInfo} for the current selection and
+   * resolves arbitrary sessions through this face for the multi-pane shell).
+   * Pure resolution — render-safe: no staging, no window side effects
+   * (StrictMode double-invokes and concurrent discarded passes must stay
+   * free). The scope mints lazily on first resolve for any eligible session,
+   * exactly as {@link SessionRuntime.binding} does.
    */
-  private provideInfo(id: string): SessionProvideInfo | undefined {
-    return this.resolve(id as SessionId)?.provideInfo
+  provideInfo(id: SessionId): SessionProvideInfo | undefined {
+    return this.resolve(id)?.provideInfo
   }
 
   /**
@@ -593,7 +612,7 @@ export class SessionRuntime implements ISessions {
    * return the static no-session projection rather than removing hook props.
    */
   private maybeProvideInfo(id: string | undefined): SessionMaybeProvideInfo {
-    return (id === undefined ? undefined : this.provideInfo(id)) ?? this.provideChannel.maybeInfo
+    return (id === undefined ? undefined : this.provideInfo(id as SessionId)) ?? this.provideChannel.maybeInfo
   }
 
   /**

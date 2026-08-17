@@ -1,0 +1,108 @@
+/**
+ * PanelWorkspace layout: toolbar, tiled row of panels, tabbed strip + active
+ * panel, and the no-panels single-conversation fallback. The surface fills
+ * the center column (the frame's minmax(0, 1fr) track).
+ */
+.workspace {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
+
+.singleFallback {
+  display: contents;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-base);
+}
+
+.addButton,
+.layoutButton {
+  font: inherit;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.addButton:hover,
+.layoutButton:hover {
+  border-color: var(--dsw-alias-border-l3);
+}
+
+.layoutToggle {
+  display: flex;
+  gap: 4px;
+  margin-left: 4px;
+}
+
+.layoutButton {
+  padding: 4px 8px;
+  background: transparent;
+}
+
+.layoutButton.layoutActive {
+  background: var(--dsw-alias-interactive-bg-hover);
+  border-color: var(--dsw-alias-border-l3);
+}
+
+.tiledRow {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.tiledRow > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.tabbedBody {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.tabStrip {
+  display: flex;
+  gap: 4px;
+  flex: none;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  overflow-x: auto;
+}
+
+.tab {
+  font: inherit;
+  color: var(--dsw-alias-label-tertiary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.tabActive {
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+  border-color: var(--dsw-alias-border-l2);
+}

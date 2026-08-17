@@ -8,6 +8,8 @@
  * presenter, which projects ctx.theme snapshots onto document.body.
  */
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ReactNode } from 'react'
 import type {} from '@deepseek-ai/dsh-client-ui-theme/client'
 import type { PanelActions } from './service.ts'
 import { AppFrame } from './AppFrame.tsx'
@@ -33,7 +35,7 @@ declare module '@deepseek-ai/cordis' {
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
     // The 'root' entry itself is the runtime's built-in slot (declared
-    // there); these four are the frame's children, declared by the same
+    // there); these five are the frame's children, declared by the same
     // register() call that contributes AppFrame. Session owners never pass
     // sessionId: the framework injects it as a standard prop.
     /**
@@ -48,11 +50,28 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      */
     'sidebar': { kind: 'single'; scope: 'root'; owner: SidebarOwnerProps }
     /**
-     * The whole center column, across both the no-session hero and a live
-     * conversation. OCCUPIED by ui-conversation's ConversationRoot, which
-     * declares the session body, composer, and input seats inside it —
-     * registering here replaces the entire conversation surface (and removes
-     * every seat it declares) rather than adding to it.
+     * The whole center column surface, across both the no-session hero and
+     * one or more live conversations. OCCUPIED by ui-panels' PanelWorkspace,
+     * which hosts a named multi-panel chat workspace (tiled or tabbed, each
+     * panel bound to its own session) and declares the conversation seats it
+     * needs inside it — registering here replaces the entire center surface
+     * (and removes every seat it declares) rather than adding to it.
+     *
+     * The owner hands down the frame's own bound 'conversation' renderer so
+     * the panels surface can host one full conversation per panel without
+     * re-declaring the conversation slot; when no occupant is registered the
+     * frame falls back to a single current-session conversation, preserving
+     * the pre-panels center column exactly.
+     */
+    'panels': { kind: 'single'; scope: 'root'; owner: PanelsOwnerProps }
+    /**
+     * ONE session's conversation surface, rendered by the frame (directly as
+     * the center fallback, or per panel through the panels occupant's
+     * renderConversation owner share with a session override). OCCUPIED by
+     * ui-conversation's ConversationRoot, which declares the session body,
+     * composer, and input seats inside it — registering here replaces the
+     * entire conversation surface (and removes every seat it declares)
+     * rather than adding to it.
      *
      * Current-session-optional: the occupant owns both states without
      * changing its React identity, so it keeps its own state across a session
@@ -104,6 +123,20 @@ export interface ConvOwnerProps {}
 /** Details owner share: empty — sessionId arrives as a framework-standard prop. */
 export interface DetailsOwnerProps {}
 
+/** Panels owner share: the frame's own bound conversation renderer, handed down so the panels surface hosts one full conversation per panel without re-declaring the slot. */
+export interface PanelsOwnerProps {
+  /**
+   * Render the conversation surface bound to a specific session (the
+   * multi-pane seat). The frame owns the 'conversation' declaration and
+   * delegates its bound renderSlot here; an omitted id renders the
+   * conversation bound to the ambient current session (the frame's own
+   * fallback behavior).
+   * @param sessionId - the session to bind the conversation to, or undefined for the ambient current session.
+   * @returns the rendered conversation surface.
+   */
+  renderConversation: (sessionId?: SessionId) => ReactNode
+}
+
 /** Required services (cordis fiber inject — the loader passes all module exports as an object plugin). */
 export const inject = ['slots', 'theme']
 
@@ -121,6 +154,7 @@ export function apply(ctx: ClientContext): void {
       name: 'root',
       children: {
         'sidebar': { kind: 'single', scope: 'root' },
+        'panels': { kind: 'single', scope: 'root' },
         'conversation': { kind: 'single', scope: 'session-maybe' },
         'details': { kind: 'single', scope: 'session' },
         'shell.overlay': { kind: 'list', scope: 'root' },

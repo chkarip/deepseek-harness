@@ -198,6 +198,13 @@
     - id: ui-conversation
       name: '@deepseek-ai/dsh-client-ui-conversation'
 
+    # Named multi-panel chat workspace: tiled/tabbed panels, each bound to
+    # its own session, with a session picker and per-panel AI summary. The
+    # frame's center column renders this surface (falling back to a single
+    # conversation while no occupant is registered).
+    - id: ui-panels
+      name: '@deepseek-ai/dsh-client-ui-panels'
+
     # Tool call tree, generic fallback, and keyed business Tool views.
     - id: ui-tool
       name: '@deepseek-ai/dsh-client-ui-tool'

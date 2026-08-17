@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { act, render } from '@testing-library/react'
 import type { SessionMaybeProvideInfo, StoredEntry } from '@deepseek-ai/dsh-client-ui-slots'
 import {
-  createSlotRenderer, SessionProvider,
+  createSlotRenderer, SessionProvider, SessionScope,
   type SessionProvideInfo, type SlotRendererHost,
 } from '@deepseek-ai/dsh-client-web-react'
 
@@ -33,6 +33,7 @@ function observable<T>(initial: T) {
 function makeHost(bodies: { root: (rp: (key: string, owner: object) => React.ReactNode) => React.ReactNode }) {
   const absentInfo: SessionMaybeProvideInfo = { sessionId: undefined, hooks: { session: undefined }, props: {} }
   const provide = observable<SessionMaybeProvideInfo>(absentInfo)
+  const listObs = observable<unknown>({ ids: [] })
   let currentId: string | undefined
   const infos = new Map<string, SessionProvideInfo>()
   const sessionEntries: StoredEntry[] = []
@@ -54,13 +55,17 @@ function makeHost(bodies: { root: (rp: (key: string, owner: object) => React.Rea
     isLive: () => true,
     storeOf: () => undefined,
     sessions: {
-      list: observable<unknown>({ ids: [] }),
+      list: listObs,
       provideInfo: provide,
+      provideInfoOf: id => infos.get(id),
     },
     workspaces: { list: observable<unknown>({ items: [] }) },
   }
   return {
     host,
+    // SessionScope's list-change subscription (scopes mint/prune with list
+    // membership); publishing forces the resolver to re-run.
+    publishList: () => { listObs.set({ ids: [...infos.keys()] }) },
     // Driver surface: set(id) publishes the resolved bundle (or the absent
     // projection) through the provide source.
     current: {
@@ -78,7 +83,15 @@ function makeHost(bodies: { root: (rp: (key: string, owner: object) => React.Rea
       }
       infos.set(id, info)
       if (currentId === id) provide.set(info)
+      // Mirror the runtime: a session becoming resolvable follows a list
+      // change (SessionScope re-resolves on it).
+      listObs.set({ ids: [...infos.keys()] })
       return info
+    },
+    /** Drop a session from the resolution map (a list-prune stand-in). */
+    removeSession: (id: string) => {
+      infos.delete(id)
+      listObs.set({ ids: [...infos.keys()] })
     },
     /** Swap one session's bundle in place (roster-change stand-in); republish when current. */
     replaceSession: (info: SessionProvideInfo) => {
@@ -193,5 +206,64 @@ describe('SessionProvider', () => {
       <SessionProvider>{id => <b>{id}</b>}</SessionProvider>,
     )).toThrow(/outside the installed renderer tree/)
     spy.mockRestore()
+  })
+})
+
+describe('SessionScope', () => {
+  it('renders the empty branch for an unresolvable session and the body once it resolves', () => {
+    const h = makeHost({
+      root: () => (
+        <SessionScope sessionId="s1" empty={() => <span>empty</span>}>
+          <div data-testid="body">bound</div>
+        </SessionScope>
+      ),
+    })
+    const view = render(<>{createSlotRenderer().renderRoot(h.host, {})}</>)
+    expect(view.container.textContent).toBe('empty')
+    act(() => { h.addSession('s1') })
+    expect(view.container.textContent).toBe('bound')
+  })
+
+  it('binds the body to the TARGET session regardless of the current selection', () => {
+    const seen: Record<string, unknown>[] = []
+    const h = makeHost({
+      root: renderSlot => (
+        <SessionScope sessionId="s1">
+          {renderSlot('k.session', {})}
+        </SessionScope>
+      ),
+    })
+    h.addSession('s1')
+    h.addSession('s2')
+    h.registerSession({
+      component: (props: { useSession?: <S>(sel: (s: { sid: string }) => S) => S; sessionId?: string }) => {
+        seen.push({ sessionId: props.sessionId, read: props.useSession!(s => s.sid) })
+        return null
+      },
+      options: {},
+    })
+    render(<>{createSlotRenderer().renderRoot(h.host, {})}</>)
+    // The ambient current session is s2, but the scope is pinned to s1.
+    act(() => { h.current.set('s2') })
+    expect(seen.at(-1)!['read']).toBe('s1')
+    expect(seen.at(-1)!['sessionId']).toBe('s1')
+  })
+
+  it('renders the empty branch again when the target session leaves the list', () => {
+    const h = makeHost({
+      root: () => (
+        <SessionScope sessionId="s1" empty={() => <span>empty</span>}>
+          <div>bound</div>
+        </SessionScope>
+      ),
+    })
+    h.addSession('s1')
+    const view = render(<>{createSlotRenderer().renderRoot(h.host, {})}</>)
+    expect(view.container.textContent).toBe('bound')
+    // A list prune drops the bundle (addSession/removeSession already
+    // publish the list change); the resolver re-runs and the scope falls
+    // back to the empty branch.
+    act(() => { h.removeSession('s1') })
+    expect(view.container.textContent).toBe('empty')
   })
 })
