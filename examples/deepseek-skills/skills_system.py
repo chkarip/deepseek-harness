@@ -801,6 +801,9 @@ class DeepSeekAgentHarness:
 
 @dataclass
 class TestCase:
+    #: Not a pytest class despite the name; keep collection from warning.
+    __test__ = False
+
     prompt: str
     expected_skill: Optional[str]
     description: str
