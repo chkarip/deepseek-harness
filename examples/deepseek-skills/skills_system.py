@@ -35,6 +35,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from agent_core import run_agent_loop
+from subagents import (
+    SUBAGENT_TYPES,
+    SubagentResult,
+    SubagentRunner,
+    build_spawn_tool,
+    normalize_spawn_request,
+)
+
 logger = logging.getLogger(__name__)
 
 #: Mirrors the kebab-case grammar enforced by `isSkillName` in packages/skill/skill.
@@ -681,63 +690,82 @@ class DeepSeekAgentHarness:
             "iterations": 0,
             "stop_reason": "completed",
             "warnings": [],
+            "subagents": [],
+            "subagent_usage": {},
+            "usage": {},
         }
 
         if mode == MODE_MOCK:
             return self._run_turn_mock(user_prompt, trace, mock_skill_resolver)
 
         system_prompt = self.skill_manager.inject_system_prompt(base_system_prompt)
-        tools = self.skill_manager.get_tool_definitions()
+        # One runner per turn: it carries this turn's spawn count and child token
+        # budget. The read/exec sandbox is pinned to this example's own directory,
+        # not to `--skills-dir`, which the caller controls.
+        runner = SubagentRunner(self._call_api, Path(__file__).resolve().parent)
+        spawn_tool = build_spawn_tool(SUBAGENT_TYPES, depth=0)
+        tools = self.skill_manager.get_tool_definitions() + ([spawn_tool] if spawn_tool else [])
         messages: List[Dict[str, Any]] = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
 
-        for iteration in range(self.max_iterations):
-            trace["iterations"] = iteration + 1
-            response = self._call_api(messages, tools=tools)
-            message = response["choices"][0]["message"]
-            tool_calls = message.get("tool_calls") or []
+        def record_tool_call(func_name: str, args: Dict[str, Any], _result: str) -> None:
+            loaded = args.get("name") if func_name == "load_skill" else None
+            # Mirrors `_dispatch_tool`'s guard: a non-string name never loaded a
+            # skill, so it must not land in the trace as if it had.
+            if isinstance(loaded, str) and loaded:
+                trace["skills_loaded"].append(loaded)
+                if trace["skill_loaded"] is None:
+                    trace["skill_loaded"] = loaded
 
-            if not tool_calls:
-                trace["final_response"] = message.get("content") or ""
-                break
+        def record_child(result: SubagentResult) -> str:
+            """Split the child's output: distilled text up, full record aside.
 
-            # Append the assistant message exactly once, then answer every tool
-            # call it made. Appending inside the loop would duplicate the turn
-            # and mis-pair the tool results whenever the model batches calls.
-            messages.append(message)
+            Only called on the loop's own thread, so the trace stays unsynchronised.
+            """
+            trace["subagents"].append(result.as_trace())
+            for key, value in result.usage.items():
+                trace["subagent_usage"][key] = trace["subagent_usage"].get(key, 0) + value
+            return result.text
 
-            for position, tool_call in enumerate(tool_calls):
-                func = tool_call.get("function") or {}
-                func_name = func.get("name") or "<missing>"
-                args, arg_error = self._parse_tool_arguments(func.get("arguments"))
+        def dispatch(name: str, args: Dict[str, Any]) -> str:
+            if name != "spawn_subagent":
+                return self._dispatch_tool(name, args)[0]
+            kwargs, arg_error = normalize_spawn_request(args)
+            if arg_error is not None:
+                return arg_error
+            return record_child(runner.run(depth=1, **kwargs))
 
-                call_id = tool_call.get("id")
-                if not call_id:
-                    call_id = f"call_{iteration}_{position}"
-                    trace["warnings"].append(
-                        f"tool call {func_name!r} had no id; synthesized {call_id!r}"
-                    )
-
-                if arg_error is not None:
-                    result, loaded = arg_error, None
+        def dispatch_batch(requests: List[Tuple[str, Dict[str, Any]]]) -> List[str]:
+            spawn_requests = [args for name, args in requests if name == "spawn_subagent"]
+            # `run_batch` returns one result per request, in request order, so the
+            # replies line up with the tool_call ids the model sent.
+            children = iter(runner.run_batch(spawn_requests) if spawn_requests else [])
+            outputs: List[str] = []
+            for name, args in requests:
+                if name == "spawn_subagent":
+                    outputs.append(record_child(next(children)))
                 else:
-                    result, loaded = self._dispatch_tool(func_name, args or {})
+                    outputs.append(dispatch(name, args))
+            return outputs
 
-                trace["tool_calls"].append({"tool": func_name, "args": args, "id": call_id})
-                if loaded:
-                    trace["skills_loaded"].append(loaded)
-                    if trace["skill_loaded"] is None:
-                        trace["skill_loaded"] = loaded
-
-                # Every tool_call id must get a reply or the next request is rejected.
-                messages.append({"role": "tool", "tool_call_id": call_id, "content": result})
-        else:
-            trace["stop_reason"] = "max_iterations"
-            trace["warnings"].append(
-                f"stopped after {self.max_iterations} iterations without a final answer"
-            )
+        loop_result = run_agent_loop(
+            call_api=self._call_api,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            tools=tools,
+            dispatch=dispatch,
+            max_iterations=self.max_iterations,
+            on_tool_call=record_tool_call,
+            dispatch_batch=dispatch_batch,
+        )
+        trace["final_response"] = loop_result.final_text
+        trace["iterations"] = loop_result.iterations
+        trace["stop_reason"] = loop_result.stop_reason
+        trace["tool_calls"] = loop_result.tool_calls
+        trace["warnings"] = loop_result.warnings
+        trace["usage"] = loop_result.usage
 
         return trace
 

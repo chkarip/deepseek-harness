@@ -1,5 +1,7 @@
 # DeepSeek Skills System
 
+English | [中文](README.zh.md)
+
 A standalone Python prototype of progressive skill loading against the DeepSeek
 chat-completions API. It explores the three-level disclosure contract before
 that behaviour is committed to a supported package.
@@ -46,6 +48,16 @@ score describes a local keyword matcher that scores prompts against the same
 skill descriptions those prompts were written from — close to circular, and not
 a measurement of model behaviour. The report prints a warning banner saying so.
 Only `--api` runs measure whether DeepSeek actually triggers `load_skill`.
+
+## Subagents
+
+The live loop exposes `spawn_subagent` for self-contained delegation. A child receives only its role prompt and task, never the parent transcript, and returns one distilled result. The available roles are `research`, `code-review`, and `test-runner`; each role has its own iteration and token limits.
+
+Tool access is allow-listed twice: unavailable tools are omitted from the child schema and rejected by the dispatcher, and `allowed_tools` can only narrow a role's defaults, never widen them. `read_file` and `run_tests` are pinned to this example's own directory rather than to `--skills-dir`, `run_tests` uses a fixed pytest command with a timeout, and `web_search` is an offline fixture stub rather than real search. Children cannot spawn further children. Multiple spawn calls in one assistant message run concurrently, while their results are returned to the parent in request order.
+
+Spawn arguments come from the model, so they are normalised before use: unrecognised keys are dropped, and a missing task or unknown role becomes a tool result the model can retry from rather than an exception that ends the turn. Three ceilings apply per turn — each role's own iteration and token limits, a shared child token budget, and a cap on how many children one turn may start.
+
+The parent trace records each child under `subagents`, with separate child usage and a `subagent_usage` rollup. An optional `output_schema` requires JSON output and accepts either a JSON Schema or a flat `{key: description}` map; the child receives one repair attempt within its remaining budget before malformed output becomes an explicit error.
 
 ## Authoring a skill
 

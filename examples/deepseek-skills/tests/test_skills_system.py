@@ -10,6 +10,7 @@ from __future__ import annotations
 import copy
 import io
 import json
+import threading
 import urllib.error
 import urllib.request
 
@@ -74,11 +75,14 @@ class FakeAPI:
     def __init__(self, *responses):
         self.responses = list(responses)
         self.calls = []
+        # Concurrent subagents share one `_call_api`; an unguarded pop would race.
+        self._lock = threading.Lock()
 
     def __call__(self, messages, tools=None):
-        # Deep-copy: run_turn mutates the same list after the call returns.
-        self.calls.append(copy.deepcopy(messages))
-        return self.responses.pop(0)
+        with self._lock:
+            # Deep-copy: run_turn mutates the same list after the call returns.
+            self.calls.append(copy.deepcopy(messages))
+            return self.responses.pop(0)
 
 
 def assistant_tool_calls(*calls):
