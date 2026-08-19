@@ -66,6 +66,9 @@
       config:
         maxNoteBytes: 8192
 
+    - id: session-handoff
+      name: '@deepseek-ai/dsh-session-handoff'
+
     # Browser Session export: `/export` command plus the shared download dialog.
     - id: session-log-download
       name: '@deepseek-ai/dsh-session-log-export'

@@ -157,6 +157,23 @@ describe('web e2e: named multi-panel chat workspace', () => {
     await settleCount(page.locator(FRAME_SELECTOR), 1)
   })
 
+  it('shows handoff action support when multiple panels are active', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-panels-handoff'))
+    await page.getByRole('button', { name: 'Add panel', exact: true }).click()
+    await settleCount(page.locator(FRAME_SELECTOR), 2)
+    const second = page.locator(FRAME_SELECTOR).nth(1)
+
+    const picker = page.getByRole('menu', { name: 'Choose session' })
+    await picker.waitFor({ timeout: 10_000 })
+    await picker.getByRole('menuitem', { name: 'New conversation' }).click()
+    await second.locator('textarea:enabled').waitFor({ timeout: 15_000 })
+
+    expect(await page.locator(FRAME_SELECTOR).count()).toBe(2)
+
+    await second.getByRole('button', { name: /Close panel/ }).click()
+    await settleCount(page.locator(FRAME_SELECTOR), 1)
+  })
+
   it('leaves a clean console', () => {
     expect(tripwire.pageErrors).toEqual([])
   })

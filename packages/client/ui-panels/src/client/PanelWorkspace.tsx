@@ -142,7 +142,7 @@ export function PanelWorkspace({
       setForkModal({ panelId, sourceSessionId: source })
     },
     onClose: () => actions.removePanel(panelId),
-    onRename: (name) => actions.renamePanel(panelId, name),
+    onRename: name => actions.renamePanel(panelId, name),
     onSummarize: () => {
       const panel = state.panels.find(candidate => candidate.id === panelId)
       if (panel?.sessionId !== undefined) void summarize(panelId, panel.sessionId)

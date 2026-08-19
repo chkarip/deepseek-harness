@@ -21,7 +21,15 @@ import type { Key, ReactNode } from 'react'
 import type * as Md from 'mdast'
 import type {} from 'mdast-util-math'
 import { normalizeUri } from 'micromark-util-sanitize-uri'
+import {
+  IconCloseOutline16,
+  IconEnhanceOutline16,
+  IconThinkOutline16,
+  IconWarningOutline16,
+} from '../icons/index.tsx'
 import { CodeBlock } from './CodeBlock.tsx'
+import { HtmlPreviewBlock } from './HtmlPreviewBlock.tsx'
+import { MermaidBlock } from './MermaidBlock.tsx'
 import { renderTexToReact } from './katex.tsx'
 import type { PositionedBlock } from './incremental.ts'
 import css from './MarkdownText.module.css'
@@ -34,7 +42,96 @@ export interface MarkdownCodeLabels {
   copiedLabel?: string | undefined
 }
 
+type GfmAlertType = 'note' | 'tip' | 'important' | 'warning' | 'caution'
+
+interface GfmAlertInfo {
+  type: GfmAlertType
+  title: string
+  bodyNodes: Md.RootContent[]
+}
+
+const ALERT_TITLES: Record<GfmAlertType, string> = {
+  note: 'Note',
+  tip: 'Tip',
+  important: 'Important',
+  warning: 'Warning',
+  caution: 'Caution',
+}
+
+function getAlertIcon(type: GfmAlertType): ReactNode {
+  switch (type) {
+    case 'note':
+      return <IconThinkOutline16 size={16} />
+    case 'tip':
+      return <IconEnhanceOutline16 size={16} />
+    case 'important':
+      return <IconWarningOutline16 size={16} />
+    case 'warning':
+      return <IconWarningOutline16 size={16} />
+    case 'caution':
+      return <IconCloseOutline16 size={16} />
+  }
+}
+
+function getAlertClassName(type: GfmAlertType): string {
+  switch (type) {
+    case 'note':
+      return `${css.alert} ${css.alertNote}`
+    case 'tip':
+      return `${css.alert} ${css.alertTip}`
+    case 'important':
+      return `${css.alert} ${css.alertImportant}`
+    case 'warning':
+      return `${css.alert} ${css.alertWarning}`
+    case 'caution':
+      return `${css.alert} ${css.alertCaution}`
+  }
+}
+
+function parseGfmAlert(node: Md.Blockquote): GfmAlertInfo | undefined {
+  if (node.children.length === 0) return undefined
+  const firstChild = node.children[0]
+  if (firstChild?.type !== 'paragraph' || firstChild.children.length === 0) return undefined
+  const firstInline = firstChild.children[0]
+  if (firstInline?.type !== 'text') return undefined
+
+  const match = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\](\r?\n)?/i.exec(firstInline.value)
+  if (!match) return undefined
+
+  const marker = match[1]
+  if (marker === undefined) return undefined
+  const alertType = marker.toLowerCase() as GfmAlertType
+  const remainingText = firstInline.value.slice(match[0].length)
+
+  let newParagraphChildren: Md.PhrasingContent[]
+  if (remainingText.length > 0) {
+    newParagraphChildren = [
+      { ...firstInline, value: remainingText },
+      ...firstChild.children.slice(1),
+    ]
+  } else {
+    newParagraphChildren = firstChild.children.slice(1)
+  }
+
+  let bodyNodes: Md.RootContent[]
+  if (newParagraphChildren.length > 0) {
+    bodyNodes = [
+      { ...firstChild, children: newParagraphChildren },
+      ...node.children.slice(1),
+    ]
+  } else {
+    bodyNodes = node.children.slice(1)
+  }
+
+  return {
+    type: alertType,
+    title: ALERT_TITLES[alertType],
+    bodyNodes,
+  }
+}
+
 function sanitizeUrl(url: string): string {
+  if (url.startsWith('#')) return url
   try {
     switch (new URL(url).protocol) {
       case 'http:':
@@ -45,8 +142,7 @@ function sanitizeUrl(url: string): string {
         return ''
     }
   } catch {
-    // Relative and otherwise unparsable destinations are disallowed alongside
-    // disallowed protocols; new URL() has no other failure mode for strings.
+    if (url.startsWith('#')) return url
     return ''
   }
 }
@@ -210,12 +306,27 @@ function renderNode(node: Md.RootContent, key: Key, context: MarkdownRenderConte
       return <p key={key}>{renderChildren(node.children, context)}</p>
     case 'heading':
       return createElement(`h${node.depth}`, { key }, ...renderChildren(node.children, context))
-    case 'blockquote':
+    case 'blockquote': {
+      const alert = parseGfmAlert(node)
+      if (alert !== undefined) {
+        return (
+          <div key={key} className={getAlertClassName(alert.type)} data-alert-type={alert.type}>
+            <div className={css.alertHeader}>
+              <span className={css.alertIcon}>{getAlertIcon(alert.type)}</span>
+              <span className={css.alertTitle}>{alert.title}</span>
+            </div>
+            <div className={css.alertBody}>
+              {wrapBlockChildren(renderChildren(alert.bodyNodes, context).filter(child => child !== null), false)}
+            </div>
+          </div>
+        )
+      }
       return (
         <blockquote key={key}>
           {wrapBlockChildren(renderChildren(node.children, context).filter(child => child !== null), true)}
         </blockquote>
       )
+    }
     case 'thematicBreak':
       return <hr key={key} />
     case 'break':
@@ -258,9 +369,24 @@ function renderNode(node: Md.RootContent, key: Key, context: MarkdownRenderConte
       }
       return <code key={key}>{value}</code>
     }
-    case 'html':
-      // No HTML parser enters the pipeline: raw HTML stays literal text.
+    case 'html': {
+      const trimmedHtml = node.value.trim()
+      const detailsMatch = /^<details(?:\s+open)?>([\s\S]*?)<\/details>$/i.exec(trimmedHtml)
+      if (detailsMatch) {
+        const inner = detailsMatch[1] ?? ''
+        const summaryMatch = /<summary>([\s\S]*?)<\/summary>/i.exec(inner)
+        const summaryText = summaryMatch ? summaryMatch[1]?.trim() : 'Details'
+        const bodyHtml = summaryMatch ? inner.replace(summaryMatch[0], '').trim() : inner
+        return (
+          <details key={key} className={css.detailsSection}>
+            <summary className={css.summaryTitle}>{summaryText}</summary>
+            <div className={css.detailsBody}>{bodyHtml}</div>
+          </details>
+        )
+      }
+      // No general HTML parser enters the pipeline: raw HTML stays literal text.
       return node.value
+    }
     case 'code':
       return renderCode(node, key, context)
     case 'math':
@@ -314,6 +440,26 @@ function renderCode(node: Md.Code, key: Key, context: MarkdownRenderContext): Re
     // ```math fences render as display TeX once settled (rehype-katex parity);
     // its text extraction saw the code block's trailing newline.
     return <Fragment key={key}>{renderTexToReact(`${node.value}\n`, true)}</Fragment>
+  }
+  if (!context.streaming && lang === 'mermaid') {
+    return (
+      <MermaidBlock
+        key={key}
+        code={`${node.value}\n`}
+        copyLabel={context.codeLabels?.copyLabel}
+        copiedLabel={context.codeLabels?.copiedLabel}
+      />
+    )
+  }
+  if (!context.streaming && lang === 'html') {
+    return (
+      <HtmlPreviewBlock
+        key={key}
+        code={`${node.value}\n`}
+        copyLabel={context.codeLabels?.copyLabel}
+        copiedLabel={context.codeLabels?.copiedLabel}
+      />
+    )
   }
   return (
     <CodeBlock
@@ -436,7 +582,8 @@ function renderTableRow(
 function renderSafeLink(href: string, children: ReactNode[], key: Key): ReactNode {
   const safeHref = sanitizeUrl(href)
   if (safeHref === '') return <Fragment key={key}>{children}</Fragment>
-  const external = ['http:', 'https:'].includes(new URL(safeHref).protocol)
+  const isHash = safeHref.startsWith('#')
+  const external = !isHash && ['http:', 'https:'].includes(new URL(safeHref).protocol)
   return (
     <a
       key={key}
@@ -526,11 +673,17 @@ function renderFootnoteReference(
 ): ReactNode {
   const id = node.identifier.toUpperCase()
   const seen = context.footnoteCounts.get(id)
+  const count = (seen ?? 0) + 1
   if (seen === undefined) context.footnoteOrder.push(id)
-  context.footnoteCounts.set(id, (seen ?? 0) + 1)
-  // The in-page anchor fails the protocol allowlist, so only the numbered
-  // superscript renders (matching the replaced pipeline's unwrapped link).
-  return <sup key={key}>{String(context.footnoteOrder.indexOf(id) + 1)}</sup>
+  context.footnoteCounts.set(id, count)
+  const index = context.footnoteOrder.indexOf(id) + 1
+  const targetId = `user-content-fn-${normalizeUri(id.toLowerCase())}`
+  const refId = `user-content-fnref-${normalizeUri(id.toLowerCase())}-${count}`
+  return (
+    <sup key={key} id={refId}>
+      <a href={`#${targetId}`} className={css.footnoteRef}>{String(index)}</a>
+    </sup>
+  )
 }
 
 /**
@@ -549,8 +702,12 @@ export function renderFootnoteSection(context: MarkdownRenderContext): ReactNode
     const backrefs: ReactNode[] = []
     for (let reference = 1; reference <= count; reference++) {
       if (backrefs.length > 0) backrefs.push(' ')
-      backrefs.push('↩')
-      if (reference > 1) backrefs.push(<sup key={`re-${reference}`}>{String(reference)}</sup>)
+      const refId = `user-content-fnref-${normalizeUri(id.toLowerCase())}-${reference}`
+      backrefs.push(
+        <a key={`re-${reference}`} href={`#${refId}`} className={css.footnoteBackref}>
+          ↩{reference > 1 && <sup>{String(reference)}</sup>}
+        </a>,
+      )
     }
     const entries = renderBlockEntries(definition.children, context)
     const tail = entries[entries.length - 1]

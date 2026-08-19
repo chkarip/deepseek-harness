@@ -34,3 +34,24 @@
   /* Optical align with 28px icon hit targets that pad 6px past the glyph. */
   margin-left: -6px;
 }
+
+@keyframes pulseCaret {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.root[data-streaming] .body > :last-child::after {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 15px;
+  margin-left: 4px;
+  vertical-align: -2px;
+  background-color: var(--dsw-alias-state-business-primary);
+  border-radius: 2px;
+  animation: pulseCaret 0.9s infinite ease-in-out;
+}

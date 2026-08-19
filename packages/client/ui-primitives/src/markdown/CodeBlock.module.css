@@ -40,10 +40,17 @@
 }
 
 .infostring {
-  color: var(--dsw-alias-label-primary);
+  color: var(--dsw-alias-label-secondary);
+  background: var(--dsw-alias-interactive-bg-hover);
+  border: 1px solid var(--dsw-alias-border-l1, transparent);
+  border-radius: 4px;
+  padding: 2px 8px;
   font-family: var(--ds-font-family-code);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -57,13 +64,23 @@
 }
 
 .copyButton {
-  background-color: rgb(255 255 255 / 0);
-  border: none;
-  padding: 0;
+  background-color: transparent;
+  border: 1px solid var(--dsw-alias-border-l1, transparent);
+  border-radius: 4px;
+  padding: 2px 8px;
   margin: 0;
-  color: inherit;
+  color: var(--dsw-alias-label-secondary);
   cursor: pointer;
-  font: inherit;
+  font: var(--dsl-code-block-banner-font);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all var(--ds-transition-duration) var(--ds-ease-in-out);
+}
+
+.copyButton:hover {
+  background-color: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
 }
 
 .block :where(pre) {

@@ -1,14 +1,17 @@
 <div class="_markdown_404681">
   <p>
     #text "First use"
-    <sup>
-      #text "1"
+    <sup id="user-content-fnref-a-1">
+      <a class="_footnoteRef_404681" href="#user-content-fn-a">
+        #text "1"
     #text " and reuse"
-    <sup>
-      #text "1"
+    <sup id="user-content-fnref-a-2">
+      <a class="_footnoteRef_404681" href="#user-content-fn-a">
+        #text "1"
     #text " and another"
-    <sup>
-      #text "2"
+    <sup id="user-content-fnref-b-1">
+      <a class="_footnoteRef_404681" href="#user-content-fn-b">
+        #text "2"
     #text "."
   <section class="footnotes" data-footnotes="true">
     <h2 class="sr-only" id="footnote-label">
@@ -19,11 +22,17 @@
           #text "Footnote a body with "
           <a href="https://example.com" rel="noopener noreferrer" target="_blank">
             #text "link"
-          #text ". ↩ ↩"
-          <sup>
-            #text "2"
+          #text ". "
+          <a class="_footnoteBackref_404681" href="#user-content-fnref-a-1">
+            #text "↩"
+          <a class="_footnoteBackref_404681" href="#user-content-fnref-a-2">
+            #text "↩"
+            <sup>
+              #text "2"
       <li id="user-content-fn-b">
         <p>
           #text "Footnote b first paragraph."
         <p>
-          #text "Second paragraph of b. ↩"
+          #text "Second paragraph of b. "
+          <a class="_footnoteBackref_404681" href="#user-content-fnref-b-1">
+            #text "↩"

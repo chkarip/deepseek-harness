@@ -52,7 +52,7 @@ function mountPicker(props: Partial<Omit<ComponentProps<typeof SessionPicker>, '
       onClose={onClose}
       t={t as never}
       {...props}
-    />
+    />,
   )
   return { view, onPick, onNew, onFork, onClose }
 }

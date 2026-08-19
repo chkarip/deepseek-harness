@@ -24,6 +24,15 @@
       "path": "../runtime"
     },
     {
+      "path": "../ui-conversation"
+    },
+    {
+      "path": "../ui-primitives"
+    },
+    {
+      "path": "../../api/remotes/tsconfig.client.json"
+    },
+    {
       "path": "../../runtime-diagnostics/invariants"
     }
   ]

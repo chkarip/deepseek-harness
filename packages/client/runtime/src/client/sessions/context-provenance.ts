@@ -77,6 +77,9 @@ export function contextProvenance(source: unknown): ContextProvenanceView {
     // session's material; its references name the sessions they were read from.
     case 'session-reference':
       return { role: 'recall', label: joined(collect(record, 'references', 'label')) ?? kind }
+    // Cross-panel / cross-session handoff relays an assistant answer with sender label.
+    case 'session-handoff':
+      return { role: 'recall', label: readString(record, 'senderLabel') ?? kind }
     // Workspace instructions name the files they were reconciled from, which
     // identifies the producer far better than the plugin id would.
     case 'agent-instructions':

@@ -50,6 +50,31 @@ export const zh = {
   'fork.role.custom.launch': '启动分支',
   'fork.role.custom.directive': '我将带着特定目标继续此对话：{goal}。请结合上文历史全面分析并开展工作。',
   'fork.modal.cancel': '取消',
+
+  // Cross-panel answer handoff
+  'handoff.action': '转发至面板',
+  'handoff.actionLabel': '转发回答至其他面板',
+  'handoff.popover.title': '转发回答至面板',
+  'handoff.targetPanel': '目标面板',
+  'handoff.targetPanel.placeholder': '选择接收面板',
+  'handoff.noOtherPanels': '暂无其他可用面板',
+  'handoff.includeQuestion': '包含上一条问题',
+  'handoff.includeSummary': '包含会话摘要',
+  'handoff.includeAnswer': '包含完整回答',
+  'handoff.summary.empty': '（暂无摘要）',
+  'handoff.summary.generating': '正在生成摘要…',
+  'handoff.summary.button': '生成 AI 摘要',
+  'handoff.note.label': '附加说明 / 提示词（可选）',
+  'handoff.note.placeholder': '向目标会话提出具体问题或指引…',
+  'handoff.delivery.label': '投递方式',
+  'handoff.delivery.attach': '静默附加上下文',
+  'handoff.delivery.attachAndAsk': '附加并立即提问',
+  'handoff.send': '发送',
+  'handoff.sending': '发送中…',
+  'handoff.sent': '已发送',
+  'handoff.error.generic': '发送失败，请重试',
+  'handoff.error.noTarget': '请选择目标面板',
+  'handoff.cancel': '取消',
 }
 
 /** English dictionary (mirror of the zh key set). */
@@ -99,6 +124,31 @@ export const en: Record<keyof typeof zh, string> = {
   'fork.role.custom.launch': 'Launch Branch',
   'fork.role.custom.directive': 'I am continuing this conversation with a specific focus on: {goal}. Please analyze the previous context with this objective in mind and proceed accordingly.',
   'fork.modal.cancel': 'Cancel',
+
+  // Cross-panel answer handoff
+  'handoff.action': 'Send to panel',
+  'handoff.actionLabel': 'Send answer to another panel',
+  'handoff.popover.title': 'Send Answer to Panel',
+  'handoff.targetPanel': 'Target panel',
+  'handoff.targetPanel.placeholder': 'Select receiving panel',
+  'handoff.noOtherPanels': 'No other active panels',
+  'handoff.includeQuestion': 'Include preceding question',
+  'handoff.includeSummary': 'Include conversation summary',
+  'handoff.includeAnswer': 'Include full answer',
+  'handoff.summary.empty': '(No summary generated)',
+  'handoff.summary.generating': 'Generating summary…',
+  'handoff.summary.button': 'Generate AI summary',
+  'handoff.note.label': 'Note / instruction (optional)',
+  'handoff.note.placeholder': 'Add a note or instruction for the receiving agent…',
+  'handoff.delivery.label': 'Delivery mode',
+  'handoff.delivery.attach': 'Attach silently',
+  'handoff.delivery.attachAndAsk': 'Attach and ask',
+  'handoff.send': 'Send',
+  'handoff.sending': 'Sending…',
+  'handoff.sent': 'Sent',
+  'handoff.error.generic': 'Failed to send, try again',
+  'handoff.error.noTarget': 'Please select a target panel',
+  'handoff.cancel': 'Cancel',
 }
 
 /** Dictionary key union (zh is the source of truth). */
