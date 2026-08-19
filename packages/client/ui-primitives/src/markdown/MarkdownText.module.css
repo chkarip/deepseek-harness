@@ -15,27 +15,27 @@
 
 .markdown h1 {
   font: var(--dsw-font-markdown-h1);
-  margin: 32px 0 16px;
+  margin: 28px 0 14px;
 }
 
 .markdown h2 {
   font: var(--dsw-font-markdown-h2);
-  margin: 32px 0 16px;
+  margin: 24px 0 12px;
 }
 
 .markdown h3 {
   font: var(--dsw-font-markdown-h3);
-  margin: 32px 0 16px;
+  margin: 20px 0 10px;
 }
 
 .markdown h4 {
   font: var(--dsw-font-markdown-h4);
-  margin: 16px 0;
+  margin: 16px 0 8px;
 }
 
 .markdown :where(h5, h6) {
   font: var(--dsw-font-markdown-base-strong);
-  margin: 16px 0;
+  margin: 14px 0 8px;
 }
 
 .markdown :where(h1, h2, h3, h4, h5, h6) strong {
@@ -43,15 +43,15 @@
 }
 
 .markdown p {
-  margin: 16px 0;
+  margin: 14px 0;
 }
 
-/* Tighten h4–h6 against a following list (design: 8px gap). */
-.markdown :where(h4, h5, h6) + :where(ul, ol) {
+/* Tighten headings against a following list or paragraph */
+.markdown :where(h1, h2, h3, h4, h5, h6) + :where(ul, ol) {
   margin-top: 8px;
 }
 
-.markdown :where(h4, h5, h6):has(+ :where(ul, ol)) {
+.markdown :where(h1, h2, h3, h4, h5, h6):has(+ :where(ul, ol)) {
   margin-bottom: 8px;
 }
 
@@ -83,8 +83,8 @@
 }
 
 .markdown :where(ul, ol) {
-  margin: 16px 0;
-  padding-left: 18px;
+  margin: 14px 0;
+  padding-left: 20px;
 }
 
 .markdown li:not(:first-child) {
@@ -111,7 +111,7 @@
 }
 
 .markdown li > p {
-  margin: 8px 0;
+  margin: 6px 0;
 }
 
 .markdown li > *:first-child {
@@ -127,14 +127,26 @@
   display: block;
   border: none;
   height: 1px;
-  margin: 32px 0;
+  margin: 28px 0;
   background: var(--dsw-alias-border-l2);
 }
 
 .markdown blockquote {
-  border-left: 2px solid var(--dsw-alias-label-caption);
-  margin: 16px 0 0;
-  padding-left: 14px;
+  border-left: 3px solid var(--dsw-alias-state-business-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+  margin: 16px 0;
+  padding: 10px 16px;
+  border-radius: 0 8px 8px 0;
+  color: var(--dsw-alias-label-primary);
+  font-style: normal;
+}
+
+.markdown blockquote > p:first-child {
+  margin-top: 0;
+}
+
+.markdown blockquote > p:last-child {
+  margin-bottom: 0;
 }
 
 .markdown pre {
@@ -149,10 +161,14 @@
   box-sizing: border-box;
   font: var(--dsw-font-markdown-code);
   font-family: var(--ds-font-family-code);
-  font-size: 0.875em !important;
+  font-size: 0.9em;
+  line-height: 1.4;
   background-color: var(--dsw-alias-markdown-inline-code);
+  border: 1px solid var(--dsw-alias-border-l1, rgb(255 255 255 / 0.06));
   border-radius: 6px;
-  padding: 0 5px;
+  padding: 1px 6px;
+  margin: 0 2px;
+  vertical-align: baseline;
 }
 
 .markdown :where(h1, h2, h3, h4, h5, h6) code {
@@ -175,20 +191,26 @@
   max-width: 100%;
   overflow-x: auto;
   overscroll-behavior-x: contain;
+  margin: 16px 0;
+  border-radius: 8px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-base);
 }
 
 .tableScroll table {
   border-collapse: collapse;
-  width: max-content;
-  max-width: max-content;
+  width: 100%;
+  min-width: max-content;
 }
 
 .tableScroll th {
   text-align: start;
   padding: 10px 16px;
-  border-bottom: 1px solid var(--dsw-alias-border-l3);
-  border-top: none;
+  background: var(--dsw-alias-interactive-bg-hover);
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-primary);
   font: var(--dsw-font-markdown-table-head);
+  font-weight: 600;
   max-width: 320px;
   max-width: min(30vw, 320px);
   min-width: 100px;
@@ -198,18 +220,18 @@
   padding: 10px 16px;
   border-bottom: 1px solid var(--dsw-alias-border-l2);
   font: var(--dsw-font-markdown-table);
+  color: var(--dsw-alias-label-primary);
   max-width: 320px;
   max-width: min(30vw, 320px);
   min-width: 100px;
 }
 
-.tableScroll th:first-child,
-.tableScroll td:first-child {
-  padding-left: 0;
+.tableScroll tr:last-child td {
+  border-bottom: none;
 }
 
-.tableScroll td:last-child {
-  padding-right: 0;
+.tableScroll tr:hover td {
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .tableScroll table code {
@@ -262,4 +284,129 @@
   outline: none;
   text-decoration: underline var(--dsw-alias-state-business-primary);
   text-underline-offset: 3px;
+}
+
+/* GFM Alerts */
+.alert {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border-left: 3px solid;
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.alertHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+  margin-bottom: 6px;
+}
+
+.alertIcon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.alertNote {
+  border-color: var(--dsw-alias-state-business-primary);
+}
+.alertNote .alertHeader {
+  color: var(--dsw-alias-state-business-primary);
+}
+
+.alertTip {
+  border-color: var(--dsw-static-green-500);
+}
+.alertTip .alertHeader {
+  color: var(--dsw-static-green-500);
+}
+
+.alertImportant {
+  border-color: var(--dsw-static-deepseek-450);
+}
+.alertImportant .alertHeader {
+  color: var(--dsw-static-deepseek-450);
+}
+
+.alertWarning {
+  border-color: var(--dsw-static-amber-500);
+}
+.alertWarning .alertHeader {
+  color: var(--dsw-static-amber-500);
+}
+
+.alertCaution {
+  border-color: var(--dsw-static-red-500);
+}
+.alertCaution .alertHeader {
+  color: var(--dsw-static-red-500);
+}
+
+.alertBody > *:first-child,
+.alertBody > p:first-child {
+  margin-top: 0 !important;
+}
+
+.alertBody > *:last-child,
+.alertBody > p:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Collapsible <details> section */
+.detailsSection {
+  margin: 16px 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-base);
+}
+
+.summaryTitle {
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--dsw-alias-label-primary);
+  user-select: none;
+}
+
+.summaryTitle:hover {
+  color: var(--dsw-alias-state-business-primary);
+}
+
+.detailsBody {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--dsw-alias-border-l1);
+}
+
+/* Footnotes */
+.footnoteRef {
+  color: var(--dsw-alias-state-business-primary);
+  text-decoration: none;
+  font-size: 0.85em;
+  padding: 0 2px;
+}
+
+.footnoteRef:hover {
+  text-decoration: underline;
+}
+
+.footnoteBackref {
+  color: var(--dsw-alias-state-business-primary);
+  text-decoration: none;
+  margin-left: 4px;
+}
+
+.footnoteBackref:hover {
+  text-decoration: underline;
+}
+
+.footnotes {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--dsw-alias-border-l2);
+  font-size: 13px;
+  color: var(--dsw-alias-label-secondary);
 }

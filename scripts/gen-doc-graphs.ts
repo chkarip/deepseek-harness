@@ -139,6 +139,14 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Owns append-only Session instances and emits the durable session event feed.',
   },
   {
+    key: 'sessionHandoff',
+    pkg: 'session-handoff',
+    title: 'Cross-session context handoff and answer relay',
+    mode: 'core',
+    consumers: ['api-remotes', 'client-ui-panels'],
+    note: 'Relays finalized assistant answers and preceding questions across sessions with tag-safe framing and byte-budget retention.',
+  },
+  {
     key: 'invariants',
     pkg: 'invariants',
     title: 'Package-owned invariant registry',

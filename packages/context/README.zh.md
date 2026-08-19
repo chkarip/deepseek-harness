@@ -7,6 +7,7 @@
 | 包 | 职责 | ctx key |
 |---|---|---|
 | [`session-reference/`](session-reference/README.md) | 其他会话的有界快照 | `ctx.sessionReferenceResolver` |
+| [`session-handoff/`](session-handoff/README.md) | 跨面板与跨会话回答中继 | `ctx.sessionHandoff` |
 | [`time-context/`](time-context/README.md) | 当前时间与耗时上下文 | — |
 | [`tmux-context/`](tmux-context/README.md) | tmux 位置上下文 | — |
 | [`agent-instructions/`](agent-instructions/README.md) | 工作区指令上下文 | — |

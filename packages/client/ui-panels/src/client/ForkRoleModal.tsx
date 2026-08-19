@@ -117,7 +117,7 @@ export function ForkRoleModal({ open, onSelectRole, onClose, t }: ForkRoleModalP
               type="text"
               placeholder={t('fork.role.custom.placeholder')}
               value={customGoal}
-              onChange={(e) => setCustomGoal(e.target.value)}
+              onChange={e => setCustomGoal(e.target.value)}
             />
             <button
               type="submit"

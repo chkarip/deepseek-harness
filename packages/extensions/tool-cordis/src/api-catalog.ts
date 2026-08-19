@@ -1006,6 +1006,19 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'sessionHandoff',
+    summary: 'Service that relays finalized answers and context across agent sessions.',
+    description: 'Service that relays finalized answers and context across agent sessions.',
+    methods: [
+      {
+        signature: '@Remote(\'relay\') async relay(request: SessionHandoffRequest): Promise<SessionHandoffRelayResult>',
+        description: 'Relay an assistant answer from a source session into a target session.',
+        parameters: [{ name: 'request', description: 'Handoff request specifications.' }],
+        returns: 'acknowledgement of successful injection.',
+      },
+    ],
+  },
+  {
     key: 'sessionPersistence',
     summary: 'Durable append-only session storage.',
     description: 'Durable append-only session storage. Implementations preserve contiguous, losslessly JSON-serializable events; append resolves only after durability, and load balances a complete interrupted tail without rewriting committed events.',
@@ -3792,6 +3805,22 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SessionForkSource',
     declaration: 'export type SessionForkSource = Session | SessionId;',
+  },
+  {
+    name: 'SessionHandoffDelivery',
+    declaration: 'export type SessionHandoffDelivery = \'attach\' | \'attach-and-ask\';',
+  },
+  {
+    name: 'SessionHandoffInclude',
+    declaration: 'export interface SessionHandoffInclude {\n    answer: boolean;\n    question: boolean;\n    summary: boolean;\n}',
+  },
+  {
+    name: 'SessionHandoffRelayResult',
+    declaration: 'export interface SessionHandoffRelayResult {\n    ok: true;\n    injectedMessageId: MessageId;\n}',
+  },
+  {
+    name: 'SessionHandoffRequest',
+    declaration: 'export interface SessionHandoffRequest {\n    sourceSessionId: SessionId;\n    messageId: MessageId;\n    targetSessionId: SessionId;\n    senderLabel: string;\n    include: SessionHandoffInclude;\n    summaryText?: string | undefined;\n    note?: string | undefined;\n    delivery: SessionHandoffDelivery;\n}',
   },
   {
     name: 'SessionHeader',

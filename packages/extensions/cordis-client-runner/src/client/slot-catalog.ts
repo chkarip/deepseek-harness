@@ -83,8 +83,8 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     key: 'conversation',
     kind: 'single',
     scope: 'session-maybe',
-    summary: 'The whole center column, across both the no-session hero and a live conversation.',
-    doc: 'The whole center column, across both the no-session hero and a live\nconversation. OCCUPIED by ui-conversation\'s ConversationRoot, which\ndeclares the session body, composer, and input seats inside it —\nregistering here replaces the entire conversation surface (and removes\nevery seat it declares) rather than adding to it.\n\nCurrent-session-optional: the occupant owns both states without\nchanging its React identity, so it keeps its own state across a session\nswitch. It receives no owner props; session facts arrive through the\nframework hooks of the `session-maybe` scope.',
+    summary: 'ONE session\'s conversation surface, rendered by the frame (directly as the center fallback, or per panel through the panels occupant\'s renderConversation owner share with a session override).',
+    doc: 'ONE session\'s conversation surface, rendered by the frame (directly as\nthe center fallback, or per panel through the panels occupant\'s\nrenderConversation owner share with a session override). OCCUPIED by\nui-conversation\'s ConversationRoot, which declares the session body,\ncomposer, and input seats inside it — registering here replaces the\nentire conversation surface (and removes every seat it declares)\nrather than adding to it.\n\nCurrent-session-optional: the occupant owns both states without\nchanging its React identity, so it keeps its own state across a session\nswitch. It receives no owner props; session facts arrive through the\nframework hooks of the `session-maybe` scope.',
     registerOptions: [],
     ownerProps: [
       '/** Conversation owner share: business state and actions belong to the registrant. */\nexport interface ConvOwnerProps {}',
@@ -108,7 +108,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'shadows-shipped-ui',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation\', () => ctx.slots.register(\n      { name: \'conversation\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-layout/src/client/index.ts:62',
+    source: 'packages/client/ui-layout/src/client/index.ts:81',
   },
   {
     key: 'conversation.chat.assistant-actions',
@@ -157,6 +157,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     declaredBy: 'an entry in \'conversation.chat.node\' (client-ui-conversation), so it exists while that entry is mounted',
     occupants: [
       'client-ui-message-feedback MessageFeedbackActions id \'feedback\'',
+      'client-ui-panels PanelHandoffAction id \'panel-handoff\'',
     ],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.chat.assistant-actions\', () => ctx.slots.register(\n      { name: \'conversation.chat.assistant-actions\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
@@ -1046,7 +1047,35 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'shadows-shipped-ui',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'details\', () => ctx.slots.register(\n      { name: \'details\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-layout/src/client/index.ts:72',
+    source: 'packages/client/ui-layout/src/client/index.ts:91',
+  },
+  {
+    key: 'panels',
+    kind: 'single',
+    scope: 'root',
+    summary: 'The whole center column surface, across both the no-session hero and one or more live conversations.',
+    doc: 'The whole center column surface, across both the no-session hero and\none or more live conversations. OCCUPIED by ui-panels\' PanelWorkspace,\nwhich hosts a named multi-panel chat workspace (tiled or tabbed, each\npanel bound to its own session) and declares the conversation seats it\nneeds inside it — registering here replaces the entire center surface\n(and removes every seat it declares) rather than adding to it.\n\nThe owner hands down the frame\'s own bound \'conversation\' renderer so\nthe panels surface can host one full conversation per panel without\nre-declaring the conversation slot; when no occupant is registered the\nframe falls back to a single current-session conversation, preserving\nthe pre-panels center column exactly.',
+    registerOptions: [],
+    ownerProps: [
+      '/** Panels owner share: the frame\'s own bound conversation renderer, handed down so the panels surface hosts one full conversation per panel without re-declaring the slot. */\nexport interface PanelsOwnerProps {\n  /**\n   * Render the conversation surface bound to a specific session (the\n   * multi-pane seat). The frame owns the \'conversation\' declaration and\n   * delegates its bound renderSlot here; an omitted id renders the\n   * conversation bound to the ambient current session (the frame\'s own\n   * fallback behavior).\n   * @param sessionId - the session to bind the conversation to, or undefined for the ambient current session.\n   * @returns the rendered conversation surface.\n   */\n  renderConversation: (sessionId?: SessionId) => ReactNode\n}',
+    ],
+    ownerPropsReferences: [
+      'SessionId',
+    ],
+    standardProps: [
+      'useSessions: SnapshotSelectorHook<SessionListState>',
+      'useWorkspaces: SnapshotSelectorHook<import(\'./workspaces/service.ts\').WorkspaceListState>',
+    ],
+    keyDomain: '',
+    hookContext: '',
+    slotInject: '',
+    declaredBy: 'an entry in \'root\' (client-ui-layout), so it exists while that entry is mounted',
+    occupants: [
+      'client-ui-panels PanelWorkspace',
+    ],
+    replaceRisk: 'shadows-shipped-ui',
+    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'panels\', () => ctx.slots.register(\n      { name: \'panels\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+    source: 'packages/client/ui-layout/src/client/index.ts:66',
   },
   {
     key: 'root',
@@ -1072,7 +1101,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'shadows-shipped-ui',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'root\', () => ctx.slots.register(\n      { name: \'root\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/runtime/src/client/slots.ts:41',
+    source: 'packages/client/runtime/src/client/slots.ts:42',
   },
   {
     key: 'settings.action',
@@ -1472,7 +1501,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     occupants: [],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'shell.overlay\', () => ctx.slots.register(\n      { name: \'shell.overlay\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-layout/src/client/index.ts:83',
+    source: 'packages/client/ui-layout/src/client/index.ts:102',
   },
   {
     key: 'sidebar',
@@ -1498,7 +1527,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'shadows-shipped-ui',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'sidebar\', () => ctx.slots.register(\n      { name: \'sidebar\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-layout/src/client/index.ts:49',
+    source: 'packages/client/ui-layout/src/client/index.ts:51',
   },
   {
     key: 'sidebar.footer.action',

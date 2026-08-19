@@ -19,12 +19,16 @@ describe('ui-deliverables node plugin', () => {
     const mounted = ctx.plugin({ apply, inject })
     await mounted.await()
 
-    const section = (await ctx.systemPrompt.assemble()).sections
-      .find(entry => entry.name === 'ui:deliverable-file-references')
-    expect(section?.text).toMatchInlineSnapshot('"When you successfully create or modify files, mention the primary outputs in your final response. To make those and any other changed-file references clickable in Web, format them as Markdown inline code using the exact file-tool path, or a basename when unique among the files changed in that turn."')
+    const sections = (await ctx.systemPrompt.assemble()).sections
+    const fileRefSection = sections.find(entry => entry.name === 'ui:deliverable-file-references')
+    expect(fileRefSection?.text).toContain('When you successfully create or modify files')
+
+    const formattingSection = sections.find(entry => entry.name === 'ui:rich-formatting-guidance')
+    expect(formattingSection?.text).toContain('Structure answers for visual clarity and rich Web rendering')
 
     await mounted.dispose()
-    expect((await ctx.systemPrompt.assemble()).sections
-      .some(entry => entry.name === 'ui:deliverable-file-references')).toBe(false)
+    const afterSections = (await ctx.systemPrompt.assemble()).sections
+    expect(afterSections.some(entry => entry.name === 'ui:deliverable-file-references')).toBe(false)
+    expect(afterSections.some(entry => entry.name === 'ui:rich-formatting-guidance')).toBe(false)
   })
 })

@@ -194,7 +194,7 @@ export function AppFrame({
             is current. */}
         <CenterColumn>
           {renderSlot('panels', {
-            renderConversation: (sessionId) =>
+            renderConversation: sessionId =>
               renderSlot('conversation', {}, sessionId === undefined ? undefined : { sessionId }),
           }, { fallback: renderSlot('conversation', {}) })}
         </CenterColumn>

@@ -1,28 +1,28 @@
 /**
  * Panels plugin, browser half: registers PanelWorkspace into the frame's
- * 'panels' slot — the named multi-panel chat workspace. The store (panel
- * roster, layout, focus) is root-scoped and persisted; the inject face wires
- * the domain verbs (summary via the panel's own agent, session creation,
- * focus) through the apply closure. The frame already declared 'panels' and
- * hands its own bound conversation renderer down as the owner share, so this
- * package declares nothing beyond its locale namespace.
+ * 'panels' slot — the named multi-panel chat workspace — and PanelHandoffAction
+ * into 'conversation.chat.assistant-actions'. The store (panel roster, layout,
+ * focus) is root-scoped and shared between both slots.
  */
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type { PanelsInjected } from './contract.ts'
+import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {} from '@deepseek-ai/dsh-api-remotes/client'
+import type { PanelsInjected, PanelHandoffInjected } from './contract.ts'
 import { en, NS, zh } from './locales.ts'
 import { createPanelsStore } from './panels-store.ts'
+import { PanelHandoffAction } from './PanelHandoffAction.tsx'
 import { PanelWorkspace } from './PanelWorkspace.tsx'
 import { summarizeSession } from './summary.ts'
 
 /** Services required by the panels plugin. */
-export const inject = ['slots', 'sessions', 'workspaces', 'locale']
+export const inject = ['slots', 'sessions', 'workspaces', 'locale', 'remote']
 
 /**
- * Client plugin body: register the workspace into 'panels' with the persisted
- * store seat and the domain-verb inject face.
+ * Client plugin body: register the workspace into 'panels' and handoff action
+ * into 'conversation.chat.assistant-actions' with the shared store and inject faces.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
@@ -30,10 +30,12 @@ export function apply(ctx: ClientContext): void {
 
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-panels: dictionaries')
 
+  const panelsStore = createPanelsStore()
+
   ctx.slots.register({
     name: 'panels',
     locale: NS,
-    store: createPanelsStore,
+    store: panelsStore,
     inject: (actions: BoundActions<ReturnType<typeof createPanelsStore>>): PanelsInjected => ({
       summarize: async (panelId, sessionId) => {
         actions.setSummaryState(panelId, 'generating')
@@ -102,4 +104,30 @@ export function apply(ctx: ClientContext): void {
       openWindow: (sessionId) => { ctx.sessions.openWindow(sessionId) },
     }),
   }, PanelWorkspace)
+
+  ctx.slots.inject('conversation.chat.assistant-actions', () => {
+    return ctx.slots.register({
+      name: 'conversation.chat.assistant-actions',
+      id: 'panel-handoff',
+      order: 20,
+      locale: NS,
+      store: panelsStore,
+      inject: (
+        _sessionId,
+        actions: BoundActions<ReturnType<typeof createPanelsStore>>,
+      ): PanelHandoffInjected => ({
+        relay: request => ctx.remote.sessionHandoff.relay(request),
+        summarize: async (panelId, sessionId) => {
+          actions.setSummaryState(panelId, 'generating')
+          try {
+            const text = await summarizeSession(ctx.sessions, t, sessionId)
+            actions.setPanelSummary(panelId, text === '' ? t('panel.summary.empty') : text)
+          } catch (error) {
+            console.error('[ui-panels] summary generation failed:', error)
+            actions.setSummaryState(panelId, 'error')
+          }
+        },
+      }),
+    }, PanelHandoffAction)
+  })
 }

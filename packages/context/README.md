@@ -7,6 +7,7 @@ Product plugins that add model-visible request context without defining a tool. 
 | Package | Role | ctx key |
 |---|---|---|
 | [`session-reference/`](session-reference/README.md) | Bounded snapshots of other sessions | `ctx.sessionReferenceResolver` |
+| [`session-handoff/`](session-handoff/README.md) | Cross-panel and cross-session answer handoff | `ctx.sessionHandoff` |
 | [`time-context/`](time-context/README.md) | Current-time and elapsed-time context | — |
 | [`tmux-context/`](tmux-context/README.md) | tmux location context | — |
 | [`agent-instructions/`](agent-instructions/README.md) | Workspace-instruction context | — |

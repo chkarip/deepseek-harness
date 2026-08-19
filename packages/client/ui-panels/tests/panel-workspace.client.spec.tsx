@@ -84,8 +84,8 @@ function WorkspaceHarness({
       renderConversation={renderConv}
       useStore={useStore}
       actions={store.actions}
-      useSessions={(sel) => sel(sessions)}
-      useWorkspaces={(sel) => sel(defaultWorkspaces)}
+      useSessions={sel => sel(sessions)}
+      useWorkspaces={sel => sel(defaultWorkspaces)}
       summarize={summarize}
       createSession={createSession}
       forkSession={forkSession}
@@ -105,7 +105,7 @@ describe('PanelWorkspace', () => {
         store={store}
         renderConv={renderConv}
         sessions={makeSessionList(sid(1), [row(sid(1), 'First')])}
-      />
+      />,
     )
     expect(view.getByTestId('conv').textContent).toBe('fallback')
     expect(renderConv).toHaveBeenCalledWith(undefined)
@@ -132,7 +132,7 @@ describe('PanelWorkspace', () => {
           row(sid(1), 'Session 1'),
           row(sid(2), 'Session 2'),
         ])}
-      />
+      />,
     )
 
     // Panel 2 picks Session 1 (which is already open in Panel 1)
@@ -179,7 +179,7 @@ describe('PanelWorkspace', () => {
         sessions={makeSessionList(sid(1), [
           row(sid(1), 'Session 1'),
         ])}
-      />
+      />,
     )
 
     // In Panel 2, click session chip and select "Branch from current conversation"
@@ -226,7 +226,7 @@ describe('PanelWorkspace', () => {
           row(sid(1), 'Session 1'),
           row(sid(2), 'Session 2'),
         ])}
-      />
+      />,
     )
 
     // Panel 2 picks Session 2 (which is NOT open in Panel 1)
