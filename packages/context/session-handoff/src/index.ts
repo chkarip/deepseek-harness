@@ -37,7 +37,7 @@ export {
   DEFAULT_ALLOW_CROSS_WORKSPACE,
   DEFAULT_MAX_RELAY_BYTES,
   SessionHandoffError,
-}
+} from './config.ts'
 export {
   PROMPT_PREFIX,
   PROMPT_SUFFIX,
