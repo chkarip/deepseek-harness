@@ -12,7 +12,7 @@ import { zh } from '../src/client/locales.ts'
 import { SessionPicker } from '../src/client/SessionPicker.tsx'
 
 /** Test-local translator over the zh dictionary (params interpolated). */
-const t = ((key: string, params?: Record<string, unknown>) => {
+const t = ((key: string, params?: Record<string, string | number>) => {
   const base = zh[key as keyof typeof zh]
   if (base === undefined) return key
   return params === undefined ? base : base.replace(/\{(\w+)\}/g, (_, name: string) => String(params[name] ?? ''))
@@ -50,7 +50,7 @@ function mountPicker(props: Partial<Omit<ComponentProps<typeof SessionPicker>, '
       onNew={onNew}
       onFork={onFork}
       onClose={onClose}
-      t={t as never}
+      t={t}
       {...props}
     />,
   )

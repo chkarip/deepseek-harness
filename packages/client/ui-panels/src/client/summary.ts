@@ -26,7 +26,7 @@ const SUMMARY_TIMEOUT_MS = 120_000
 function scopedConversation(sessions: ISessions, sessionId: SessionId): PanelConversation | undefined {
   const scope = sessions.scope(sessionId)
   if (scope === undefined) return undefined
-  return scope.get('conversation') as PanelConversation | undefined
+  return scope.get('conversation')
 }
 
 /** Resolve once the predicate holds, or reject after the timeout. */
@@ -59,7 +59,9 @@ function waitForSnapshot<T>(
 }
 
 /** Extract the last finalized assistant text from the snapshot's ordered nodes. */
-function lastAssistantText(snapshot: { nodes: readonly { kind: string; blocks?: readonly { kind: string; text?: string }[] }[] }): string | undefined {
+function lastAssistantText(
+  snapshot: { nodes: readonly { kind: string; blocks?: readonly { kind: string; text?: string }[] }[] },
+): string | undefined {
   for (let index = snapshot.nodes.length - 1; index >= 0; index--) {
     const node = snapshot.nodes[index]
     if (node?.kind !== 'assistant' || node.blocks === undefined) continue
@@ -105,5 +107,5 @@ export async function summarizeSession(
     snapshot => snapshot.turnEnds.size > before,
     SUMMARY_TIMEOUT_MS,
   )
-  return lastAssistantText(session.getSnapshot() as Parameters<typeof lastAssistantText>[0]) ?? ''
+  return lastAssistantText(session.getSnapshot()) ?? ''
 }

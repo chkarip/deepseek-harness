@@ -81,7 +81,7 @@ export function PanelHandoffAction({
   }, [])
 
   const onSummarizeSource = useCallback(() => {
-    if (currentPanel !== undefined && sessionId !== undefined) {
+    if (currentPanel !== undefined) {
       void summarize(currentPanel.id, sessionId)
     }
   }, [currentPanel, sessionId, summarize])
@@ -112,7 +112,7 @@ export function PanelHandoffAction({
         delivery,
       })
 
-      if ('ok' in res && res.ok === false) {
+      if ('ok' in res && ! res.ok) {
         setStatus('error')
         setErrorMessage(res.error.message || t('handoff.error.generic'))
         return
@@ -180,7 +180,7 @@ export function PanelHandoffAction({
               <select
                 className={css.select}
                 value={targetPanelId}
-                onChange={e => setTargetPanelId(e.target.value)}
+                onChange={(e) =>{  setTargetPanelId(e.target.value) }}
                 disabled={status === 'sending'}
               >
                 {otherPanels.map(panel => (
@@ -197,7 +197,7 @@ export function PanelHandoffAction({
               <input
                 type="checkbox"
                 checked={includeAnswer}
-                onChange={e => setIncludeAnswer(e.target.checked)}
+                onChange={(e) =>{  setIncludeAnswer(e.target.checked) }}
                 disabled={status === 'sending'}
               />
               <span>{t('handoff.includeAnswer')}</span>
@@ -207,7 +207,7 @@ export function PanelHandoffAction({
               <input
                 type="checkbox"
                 checked={includeQuestion}
-                onChange={e => setIncludeQuestion(e.target.checked)}
+                onChange={(e) =>{  setIncludeQuestion(e.target.checked) }}
                 disabled={status === 'sending'}
               />
               <span>{t('handoff.includeQuestion')}</span>
@@ -217,7 +217,7 @@ export function PanelHandoffAction({
               <input
                 type="checkbox"
                 checked={includeSummary}
-                onChange={e => setIncludeSummary(e.target.checked)}
+                onChange={(e) =>{  setIncludeSummary(e.target.checked) }}
                 disabled={status === 'sending'}
               />
               <span>{t('handoff.includeSummary')}</span>
@@ -252,7 +252,7 @@ export function PanelHandoffAction({
               className={css.textarea}
               placeholder={t('handoff.note.placeholder')}
               value={note}
-              onChange={e => setNote(e.target.value)}
+              onChange={(e) =>{  setNote(e.target.value) }}
               disabled={status === 'sending'}
               rows={2}
             />
@@ -267,7 +267,7 @@ export function PanelHandoffAction({
                   name={`handoff-delivery-${messageId}`}
                   value="attach"
                   checked={delivery === 'attach'}
-                  onChange={() => setDelivery('attach')}
+                  onChange={() =>{  setDelivery('attach') }}
                   disabled={status === 'sending'}
                 />
                 <span>{t('handoff.delivery.attach')}</span>
@@ -278,7 +278,7 @@ export function PanelHandoffAction({
                   name={`handoff-delivery-${messageId}`}
                   value="attach-and-ask"
                   checked={delivery === 'attach-and-ask'}
-                  onChange={() => setDelivery('attach-and-ask')}
+                  onChange={() =>{  setDelivery('attach-and-ask') }}
                   disabled={status === 'sending'}
                 />
                 <span>{t('handoff.delivery.attachAndAsk')}</span>
@@ -309,7 +309,7 @@ export function PanelHandoffAction({
             <button
               type="button"
               className={css.sendBtn}
-              onClick={onSend}
+              onClick={() => { void onSend() }}
               disabled={status === 'sending' || otherPanels.length === 0 || (!includeAnswer && !includeQuestion && !includeSummary)}
             >
               {status === 'sending' ? t('handoff.sending') : t('handoff.send')}

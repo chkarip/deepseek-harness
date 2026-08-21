@@ -19,7 +19,7 @@ import { zh } from '../src/client/locales.ts'
 import { createPanelsStore } from '../src/client/panels-store.ts'
 import { PanelHandoffAction } from '../src/client/PanelHandoffAction.tsx'
 
-const t = ((key: string, params?: Record<string, unknown>) => {
+const t = ((key: string, params?: Record<string, string | number>) => {
   const base = zh[key as keyof typeof zh]
   if (base === undefined) return key
   return params === undefined ? base : base.replace(/\{(\w+)\}/g, (_, name: string) => String(params[name] ?? ''))
@@ -52,10 +52,10 @@ function Harness({
       useSessions={vi.fn() as never}
       useWorkspaces={vi.fn() as never}
       getPanels={() => handle.getSnapshot().panels}
-      subscribePanels={handle.subscribe}
+      subscribePanels={listener => handle.subscribe(listener)}
       relay={relay}
       summarize={summarize}
-      t={t as never}
+      t={t}
     />
   )
 }

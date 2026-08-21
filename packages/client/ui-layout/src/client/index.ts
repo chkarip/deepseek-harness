@@ -123,7 +123,11 @@ export interface ConvOwnerProps {}
 /** Details owner share: empty — sessionId arrives as a framework-standard prop. */
 export interface DetailsOwnerProps {}
 
-/** Panels owner share: the frame's own bound conversation renderer, handed down so the panels surface hosts one full conversation per panel without re-declaring the slot. */
+/**
+ * Panels owner share: the frame's own bound conversation renderer, handed down
+ * so the panels surface hosts one full conversation per panel without
+ * re-declaring the slot.
+ */
 export interface PanelsOwnerProps {
   /**
    * Render the conversation surface bound to a specific session (the

@@ -154,7 +154,7 @@ function renderGroup(
       openFile={vi.fn()}
       inspectCall={vi.fn()}
       forkAt={vi.fn()}
-      loadImage={vi.fn()}
+      renderMessageImages={vi.fn()}
       fileMentions={vi.fn()}
     />,
   )
@@ -188,7 +188,7 @@ describe('WorkGroup', () => {
     const group: ChatWorkGroupRow = { kind: 'work-group', id: '1:first', turn: 1, keys: nodes.map(n => n.key) }
     const props = {
       group, useSession, renderSlot, t,
-      openFile: vi.fn(), inspectCall: vi.fn(), forkAt: vi.fn(), loadImage: vi.fn(), fileMentions: vi.fn(),
+      openFile: vi.fn(), inspectCall: vi.fn(), forkAt: vi.fn(), renderMessageImages: vi.fn(), fileMentions: vi.fn(),
     }
     const expanded = (view: RenderResult): string | null =>
       view.container.querySelector('[data-disclosure-row]')?.getAttribute('aria-expanded') ?? null

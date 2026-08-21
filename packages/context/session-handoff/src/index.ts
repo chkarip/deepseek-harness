@@ -125,7 +125,7 @@ export class SessionHandoffService extends TypertRemoteService {
 
     let summaryText = request.summaryText?.trim()
     if ((summaryText === undefined || summaryText.length === 0) && request.include.summary) {
-      const title = await this.ctx.get('sessionQuery')?.readTitle?.(request.sourceSessionId)
+      const title = await this.ctx.get('sessionQuery')?.readTitle(request.sourceSessionId)
       if (title?.title) {
         summaryText = title.title
       }
@@ -184,10 +184,11 @@ export class SessionHandoffService extends TypertRemoteService {
     }
   }
 
-  private validateRequest(request: SessionHandoffRequest): void {
-    if (typeof request !== 'object' || request === null) {
+  private validateRequest(value: unknown): void {
+    if (typeof value !== 'object' || value === null) {
       throw new SessionHandoffError('request must be an object', 'SESSION_HANDOFF_INVALID_REQUEST')
     }
+    const request = value as Record<string, unknown>
     if (typeof request.sourceSessionId !== 'string' || request.sourceSessionId.length === 0) {
       throw new SessionHandoffError('sourceSessionId must be a non-empty string', 'SESSION_HANDOFF_INVALID_REQUEST')
     }
@@ -209,7 +210,7 @@ export class SessionHandoffService extends TypertRemoteService {
   }
 
   private async resolveSourceAgent(sessionId: SessionId): Promise<Agent> {
-    const live = this.ctx.agents?.get(sessionId)
+    const live = this.ctx.agents.get(sessionId)
     if (live !== undefined) return live
     try {
       return (await this.ctx.agents.resume({ resumeSessionId: sessionId })).agent
@@ -222,7 +223,7 @@ export class SessionHandoffService extends TypertRemoteService {
   }
 
   private async resolveTargetAgent(sessionId: SessionId): Promise<Agent> {
-    const live = this.ctx.agents?.get(sessionId)
+    const live = this.ctx.agents.get(sessionId)
     if (live !== undefined) return live
     try {
       return (await this.ctx.agents.resume({ resumeSessionId: sessionId })).agent

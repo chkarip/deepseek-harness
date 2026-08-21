@@ -80,7 +80,7 @@ export function PanelWorkspace({
   }
 
   /** Bind a session to a panel, focus it, and focus the panel. If the session is already open in another panel, open fork pathway modal. */
-  const pickSession = async (panelId: string, sessionId: SessionId): Promise<void> => {
+  const pickSession = (panelId: string, sessionId: SessionId): void => {
     const isAlreadyOpen = state.panels.some(
       candidate => candidate.id !== panelId && candidate.sessionId === sessionId,
     )
@@ -94,7 +94,7 @@ export function PanelWorkspace({
   }
 
   /** Handle fork pathway selection from the ForkRoleModal. */
-  const handleSelectForkRole = async (role: ForkRole, customGoal?: string | undefined): Promise<void> => {
+  const handleSelectForkRole = async (role: ForkRole, customGoal?: string  ): Promise<void> => {
     if (forkModal === null) return
     const { panelId, sourceSessionId } = forkModal
     setForkModal(null)
@@ -119,43 +119,47 @@ export function PanelWorkspace({
   const active = state.layout === 'tabbed'
     ? state.panels.find(panel => panel.id === state.activePanelId) ?? state.panels[0]
     : undefined
-  const frameProps = (panelId: string): PanelFrameProps => ({
-    panel: state.panels.find(panel => panel.id === panelId)!,
-    rows,
-    currentSessionId: sessions.current,
-    pickerAutoOpen: autoPickerPanelId === panelId,
-    onPickerAutoOpened: () => setAutoPickerPanelId(current => current === panelId ? undefined : current),
-    onFocus: () => focusPanel(panelId),
-    onPickSession: (sessionId) => { void pickSession(panelId, sessionId) },
-    onCreateSession: async () => {
-      try {
-        const sessionId = await createSession()
-        await pickSession(panelId, sessionId)
-      } catch (error) {
-        // The panel stays unbound (its hero lets the user pick a workspace).
-        console.error('[ui-panels] create conversation failed:', error)
-      }
-    },
-    onCreateFork: () => {
-      const source = sessions.current
-      if (source === undefined) return
-      setForkModal({ panelId, sourceSessionId: source })
-    },
-    onClose: () => actions.removePanel(panelId),
-    onRename: name => actions.renamePanel(panelId, name),
-    onSummarize: () => {
-      const panel = state.panels.find(candidate => candidate.id === panelId)
-      if (panel?.sessionId !== undefined) void summarize(panelId, panel.sessionId)
-    },
-    renderConversation,
-    t,
-  })
+  const frameProps = (panel: PanelFrameProps['panel']): PanelFrameProps => {
+    const panelId = panel.id
+    return {
+      panel,
+      rows,
+      currentSessionId: sessions.current,
+      pickerAutoOpen: autoPickerPanelId === panelId,
+      onPickerAutoOpened: () =>{  setAutoPickerPanelId(current => current === panelId ? undefined : current) },
+      onFocus: () =>{  focusPanel(panelId) },
+      onPickSession: (sessionId) => { pickSession(panelId, sessionId) },
+      onCreateSession: () => {
+        void (async () => {
+          try {
+            const sessionId = await createSession()
+            pickSession(panelId, sessionId)
+          } catch (error) {
+            // The panel stays unbound (its hero lets the user pick a workspace).
+            console.error('[ui-panels] create conversation failed:', error)
+          }
+        })()
+      },
+      onCreateFork: () => {
+        const source = sessions.current
+        if (source === undefined) return
+        setForkModal({ panelId, sourceSessionId: source })
+      },
+      onClose: () =>{  actions.removePanel(panelId) },
+      onRename: (name) =>{  actions.renamePanel(panelId, name) },
+      onSummarize: () => {
+        if (panel.sessionId !== undefined) void summarize(panelId, panel.sessionId)
+      },
+      renderConversation,
+      t,
+    }
+  }
   const body = state.panels.length === 0
     ? <div className={css.singleFallback}>{renderConversation(undefined)}</div>
     : state.layout === 'tiled' ? (
       <div className={css.tiledRow}>
         {state.panels.map(panel => (
-          <PanelFrame key={panel.id} {...frameProps(panel.id)} />
+          <PanelFrame key={panel.id} {...frameProps(panel)} />
         ))}
       </div>
     ) : (
@@ -168,14 +172,14 @@ export function PanelWorkspace({
               role="tab"
               aria-selected={panel.id === active?.id}
               className={clsx(css.tab, panel.id === active?.id && css.tabActive)}
-              onClick={() => focusPanel(panel.id)}
+              onClick={() =>{  focusPanel(panel.id) }}
             >
               {panel.name}
             </button>
           ))}
         </div>
         {active !== undefined && (
-          <PanelFrame key={active.id} {...frameProps(active.id)} />
+          <PanelFrame key={active.id} {...frameProps(active)} />
         )}
       </div>
     )
@@ -191,7 +195,7 @@ export function PanelWorkspace({
             type="button"
             className={clsx(css.layoutButton, state.layout === 'tiled' && css.layoutActive)}
             aria-pressed={state.layout === 'tiled'}
-            onClick={() => actions.setLayout('tiled')}
+            onClick={() =>{  actions.setLayout('tiled') }}
           >
             {t('toolbar.layout.tiled')}
           </button>
@@ -199,7 +203,7 @@ export function PanelWorkspace({
             type="button"
             className={clsx(css.layoutButton, state.layout === 'tabbed' && css.layoutActive)}
             aria-pressed={state.layout === 'tabbed'}
-            onClick={() => actions.setLayout('tabbed')}
+            onClick={() =>{  actions.setLayout('tabbed') }}
           >
             {t('toolbar.layout.tabbed')}
           </button>
@@ -209,7 +213,7 @@ export function PanelWorkspace({
       <ForkRoleModal
         open={forkModal !== null}
         onSelectRole={(role, customGoal) => { void handleSelectForkRole(role, customGoal) }}
-        onClose={() => setForkModal(null)}
+        onClose={() =>{  setForkModal(null) }}
         t={t}
       />
     </div>

@@ -115,7 +115,7 @@ export function apply(ctx: ClientContext): void {
       locale: NS,
       inject: (): PanelHandoffInjected => ({
         getPanels: () => storeInstance.getSnapshot().panels,
-        subscribePanels: storeInstance.subscribe,
+        subscribePanels: listener => storeInstance.subscribe(listener),
         relay: request => ctx.remote.sessionHandoff.relay(request),
         summarize: async (panelId, sessionId) => {
           storeInstance.actions.setSummaryState(panelId, 'generating')

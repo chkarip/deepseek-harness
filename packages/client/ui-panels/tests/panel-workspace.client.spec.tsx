@@ -14,7 +14,7 @@ import { zh } from '../src/client/locales.ts'
 import { createPanelsStore, type PanelsState } from '../src/client/panels-store.ts'
 import { PanelWorkspace } from '../src/client/PanelWorkspace.tsx'
 
-const t = ((key: string, params?: Record<string, unknown>) => {
+const t = ((key: string, params?: Record<string, string | number>) => {
   const base = zh[key as keyof typeof zh]
   if (base === undefined) return key
   return params === undefined ? base : base.replace(/\{(\w+)\}/g, (_, name: string) => String(params[name] ?? ''))
@@ -62,7 +62,7 @@ function WorkspaceHarness({
   store,
   sessions,
   renderConv = vi.fn((sessionId?: SessionId) => <div data-testid={`conv-${sessionId}`}>{sessionId ?? 'fallback'}</div>),
-  forkSession = vi.fn().mockResolvedValue({ sessionId: sid('forked-1'), panelName: 'Forked' } as ForkResult),
+  forkSession = vi.fn().mockResolvedValue({ sessionId: sid('forked-1'), panelName: 'Forked' }),
   openSession = vi.fn(),
   createSession = vi.fn(),
   summarize = vi.fn(),
@@ -77,7 +77,7 @@ function WorkspaceHarness({
   summarize?: (panelId: string, sessionId: SessionId) => Promise<void>
   openWindow?: (sessionId: SessionId) => void
 }) {
-  const state = useSyncExternalStore(store.subscribe, store.getSnapshot)
+  const state = useSyncExternalStore(listener => store.subscribe(listener), () => store.getSnapshot())
   const useStore = <T,>(sel: (s: PanelsState) => T) => sel(state)
   return (
     <PanelWorkspace
@@ -91,7 +91,7 @@ function WorkspaceHarness({
       forkSession={forkSession}
       openSession={openSession}
       openWindow={openWindow}
-      t={t as never}
+      t={t}
     />
   )
 }

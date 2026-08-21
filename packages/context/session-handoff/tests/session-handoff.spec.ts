@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, type Mock } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { createAssistantMessage, createUserMessage, type UserMessage } from '@deepseek-ai/dsh-llm'
@@ -22,22 +22,25 @@ function expectCode(code: SessionHandoffErrorCode): Error {
   return expect.objectContaining({ code }) as Error
 }
 
-function createFakeAgent(session: Session): Agent {
+function createFakeAgent(session: Session): { agent: Agent; inject: Mock; followup: Mock } {
   const injected: unknown[] = []
   const followups: unknown[] = []
+
+  const inject = vi.fn((msg: unknown) => {
+    injected.push(msg)
+  })
+  const followup = vi.fn((msg: unknown) => {
+    followups.push(msg)
+  })
 
   const agent: Agent = {
     id: session.id,
     session,
-    inject: vi.fn((msg) => {
-      injected.push(msg)
-    }),
-    followup: vi.fn((msg) => {
-      followups.push(msg)
-    }),
+    inject,
+    followup,
   } as unknown as Agent
 
-  return agent
+  return { agent, inject, followup }
 }
 
 function appendAssistant(session: Session, text: string): MessageId {
@@ -50,7 +53,7 @@ function appendAssistant(session: Session, text: string): MessageId {
     step: 1,
     message: msg,
   }, { surfaceOp: 'append' })
-  return deriveEventMessage(ev)!.id as MessageId
+  return deriveEventMessage(ev)!.id
 }
 
 function appendUser(session: Session, text: string): void {
@@ -79,7 +82,7 @@ async function harness(config: Config = {}): Promise<{
   ctx: Context
   service: SessionHandoffService
   agentsMap: Map<SessionId, Agent>
-  createAgent: (id: string, cwd?: string) => { agent: Agent; session: Session }
+  createAgent: (id: string, cwd?: string) => { agent: Agent; session: Session; inject: Mock; followup: Mock }
 }> {
   const ctx = new Context()
   await ctx.plugin(SessionStore)
@@ -100,9 +103,9 @@ async function harness(config: Config = {}): Promise<{
         cwd: cwd ?? '/workspace/repo',
       },
     })
-    const agent = createFakeAgent(session)
+    const { agent, inject, followup } = createFakeAgent(session)
     agentsMap.set(session.id, agent)
-    return { agent, session }
+    return { agent, session, inject, followup }
   }
 
   return { ctx, service, agentsMap, createAgent }
@@ -307,7 +310,7 @@ describe('SessionHandoffService', () => {
   it('allows cross-workspace handoffs when configured', async () => {
     const { service, createAgent } = await harness({ allowCrossWorkspace: true })
     const { agent: source, session: srcSession } = createAgent('s-src-allowed', '/workspace/app-a')
-    const { agent: target } = createAgent('s-tgt-allowed', '/workspace/app-b')
+    const { agent: target, inject: targetInject } = createAgent('s-tgt-allowed', '/workspace/app-b')
 
     const msgId = appendAssistant(srcSession, 'Cross-workspace reply')
 
@@ -321,7 +324,7 @@ describe('SessionHandoffService', () => {
     })
 
     expect(result.ok).toBe(true)
-    expect(target.inject).toHaveBeenCalledTimes(1)
+    expect(targetInject).toHaveBeenCalledTimes(1)
   })
 
   it('rejects when messageId is not a finalized assistant message', async () => {
@@ -342,7 +345,7 @@ describe('SessionHandoffService', () => {
   it('relays successfully in attach mode', async () => {
     const { service, createAgent } = await harness()
     const { agent: source, session: srcSession } = createAgent('s-src')
-    const { agent: target } = createAgent('s-tgt')
+    const { agent: target, inject: targetInject, followup: targetFollowup } = createAgent('s-tgt')
 
     appendUser(srcSession, 'How to build an app?')
     const msgId = appendAssistant(srcSession, 'Step 1: Plan. Step 2: Build.')
@@ -358,10 +361,10 @@ describe('SessionHandoffService', () => {
     })
 
     expect(res.ok).toBe(true)
-    expect(target.inject).toHaveBeenCalledTimes(1)
-    expect(target.followup).not.toHaveBeenCalled()
+    expect(targetInject).toHaveBeenCalledTimes(1)
+    expect(targetFollowup).not.toHaveBeenCalled()
 
-    const injectedMsg = (target.inject as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as UserMessage
+    const injectedMsg = targetInject.mock.calls[0]?.[0] as UserMessage
     expect(injectedMsg.source).toEqual({
       kind: 'session-handoff',
       form: 'relay',
@@ -378,7 +381,7 @@ describe('SessionHandoffService', () => {
   it('relays successfully in attach-and-ask mode with note', async () => {
     const { service, createAgent } = await harness()
     const { agent: source, session: srcSession } = createAgent('s-src')
-    const { agent: target } = createAgent('s-tgt')
+    const { agent: target, inject: targetInject, followup: targetFollowup } = createAgent('s-tgt')
 
     const msgId = appendAssistant(srcSession, 'Implemented module X')
 
@@ -393,10 +396,10 @@ describe('SessionHandoffService', () => {
     })
 
     expect(res.ok).toBe(true)
-    expect(target.inject).toHaveBeenCalledTimes(1)
-    expect(target.followup).toHaveBeenCalledTimes(1)
+    expect(targetInject).toHaveBeenCalledTimes(1)
+    expect(targetFollowup).toHaveBeenCalledTimes(1)
 
-    const followupMsg = (target.followup as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as UserMessage
+    const followupMsg = targetFollowup.mock.calls[0]?.[0] as UserMessage
     expect(followupMsg.source).toEqual({ kind: 'user' })
     expect(followupMsg.content[0]?.type === 'text' ? followupMsg.content[0].text : '').toBe('Please review the module implementation.')
   })
@@ -404,7 +407,7 @@ describe('SessionHandoffService', () => {
   it('falls back to sessionQuery title when summaryText is omitted', async () => {
     const { service, createAgent } = await harness()
     const { agent: source, session: srcSession } = createAgent('s-src')
-    const { agent: target } = createAgent('s-tgt')
+    const { agent: target, inject: targetInject } = createAgent('s-tgt')
 
     srcSession.append('session/title', {
       title: 'Auto Generated Session Title',
@@ -423,7 +426,7 @@ describe('SessionHandoffService', () => {
     })
 
     expect(res.ok).toBe(true)
-    const injectedMsg = (target.inject as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as UserMessage
+    const injectedMsg = targetInject.mock.calls[0]?.[0] as UserMessage
     expect(injectedMsg.content[0]?.type === 'text' ? injectedMsg.content[0].text : '').toContain('Auto Generated Session Title')
   })
 

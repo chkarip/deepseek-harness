@@ -64,7 +64,7 @@ export function PanelFrame({
   // Fork needs a focused source with actual history (blank sessions have no
   // completed turn to branch from).
   const currentRow = currentSessionId === undefined ? undefined : rows.find(row => row.id === currentSessionId)
-  const canFork = currentRow !== undefined && currentRow.blank === false
+  const canFork = currentRow !== undefined && ! currentRow.blank
 
   const commitRename = (): void => {
     setEditing(false)
@@ -77,7 +77,7 @@ export function PanelFrame({
       className={clsx(css.frame, isCurrent && css.frameCurrent)}
       data-panel-id={panel.id}
       data-session-id={panel.sessionId}
-      onClick={() => onFocus()}
+      onClick={() =>{  onFocus() }}
     >
       <header className={css.header}>
         {editing ? (
@@ -98,7 +98,7 @@ export function PanelFrame({
           <button
             type="button"
             className={css.nameButton}
-            title={t('panel.renameHint') ?? panel.name}
+            title={t('panel.renameHint')}
             onClick={(event) => { event.stopPropagation(); setDraft(panel.name); setEditing(true) }}
           >
             {panel.name}
@@ -118,9 +118,9 @@ export function PanelFrame({
           rows={rows}
           selectedId={panel.sessionId}
           onPick={(sessionId) => { setPickerOpen(false); onPickSession(sessionId) }}
-          onNew={() => { setPickerOpen(false); void onCreateSession() }}
+          onNew={() => { setPickerOpen(false);  onCreateSession() }}
           canFork={canFork}
-          onFork={() => { setPickerOpen(false); void onCreateFork() }}
+          onFork={() => { setPickerOpen(false);  onCreateFork() }}
           onClose={() => { setPickerOpen(false) }}
           t={t}
         />

@@ -9,7 +9,7 @@ import css from './ForkRoleModal.module.css'
 
 export interface ForkRoleModalProps {
   open: boolean
-  onSelectRole: (role: ForkRole, customGoal?: string | undefined) => void
+  onSelectRole: (role: ForkRole, customGoal?: string  ) => void
   onClose: () => void
   t: TranslateNS<'panels'>
 }
@@ -68,7 +68,7 @@ export function ForkRoleModal({ open, onSelectRole, onClose, t }: ForkRoleModalP
           <button
             type="button"
             className={css.card}
-            onClick={() => onSelectRole('reviewer')}
+            onClick={() =>{  onSelectRole('reviewer') }}
           >
             <span className={css.cardIcon}>🔍</span>
             <span className={css.cardTitle}>{t('fork.role.reviewer.title')}</span>
@@ -78,7 +78,7 @@ export function ForkRoleModal({ open, onSelectRole, onClose, t }: ForkRoleModalP
           <button
             type="button"
             className={css.card}
-            onClick={() => onSelectRole('brainstorm')}
+            onClick={() =>{  onSelectRole('brainstorm') }}
           >
             <span className={css.cardIcon}>💡</span>
             <span className={css.cardTitle}>{t('fork.role.brainstorm.title')}</span>
@@ -88,7 +88,7 @@ export function ForkRoleModal({ open, onSelectRole, onClose, t }: ForkRoleModalP
           <button
             type="button"
             className={css.card}
-            onClick={() => onSelectRole('docs')}
+            onClick={() =>{  onSelectRole('docs') }}
           >
             <span className={css.cardIcon}>📝</span>
             <span className={css.cardTitle}>{t('fork.role.docs.title')}</span>
@@ -98,7 +98,7 @@ export function ForkRoleModal({ open, onSelectRole, onClose, t }: ForkRoleModalP
           <button
             type="button"
             className={css.card}
-            onClick={() => onSelectRole('plain')}
+            onClick={() =>{  onSelectRole('plain') }}
           >
             <span className={css.cardIcon}>🚀</span>
             <span className={css.cardTitle}>{t('fork.role.plain.title')}</span>
@@ -117,7 +117,7 @@ export function ForkRoleModal({ open, onSelectRole, onClose, t }: ForkRoleModalP
               type="text"
               placeholder={t('fork.role.custom.placeholder')}
               value={customGoal}
-              onChange={e => setCustomGoal(e.target.value)}
+              onChange={(e) =>{  setCustomGoal(e.target.value) }}
             />
             <button
               type="submit"
