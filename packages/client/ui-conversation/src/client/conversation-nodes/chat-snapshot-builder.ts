@@ -1,6 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  ChatConversationViewNode, ChatLocationNodeIndex, ChatNodeStore, ChatSnapshot,
+  ChatConversationViewNode, ChatLocationNodeIndex, ChatNodeStore, ChatRow, ChatSnapshot,
   ConversationLocation, ConversationNode, ConversationTimelineSnapshot,
   ConversationViewBuilder, ConversationViewDefinition, LegacyConversationSlice,
   PartialAssistant, RunningToolCall,
@@ -136,6 +136,77 @@ function orderedVisible(nodes: readonly ChatConversationViewNode[]): ChatConvers
   return nodes
     .filter(node => node.visibility === 'visible')
     .sort((left, right) => left.anchorSeq - right.anchorSeq || left.key.localeCompare(right.key))
+}
+
+/**
+ * Classify one Node as intermediate work: material the reader scrolls past on
+ * the way to the answer. Tool calls always qualify; an Assistant step does
+ * only while everything it carries is reasoning or tool-call heads, so the
+ * step that finally speaks (or froze mid-sentence) leaves the group by itself.
+ * @param node - materialized Chat Node.
+ * @returns whether the row belongs inside a work group.
+ */
+function isWorkNode(node: ChatConversationViewNode): boolean {
+  const chat = node as ChatNode
+  if (chat.kind === 'tool-call') return true
+  if (chat.kind !== 'assistant-step') return false
+  if (chat.data.status === 'interrupted') return false
+  return chat.data.blocks.every(block => block.kind === 'reasoning' || block.kind === 'tool-call')
+}
+
+function sameRow(left: ChatRow | undefined, right: ChatRow): boolean {
+  if (left === undefined) return false
+  return right.kind === 'node'
+    ? left.kind === 'node' && left.key === right.key
+    : left.kind === 'work-group' && left.id === right.id && sameReferences(left.keys, right.keys)
+}
+
+/** Reuse unmoved row objects so an unchanged group never remounts its members. */
+function updateRows(previous: readonly ChatRow[], next: readonly ChatRow[]): readonly ChatRow[] {
+  const merged = next.map((row, index) => {
+    const before = previous[index]
+    return sameRow(before, row) && before !== undefined ? before : row
+  })
+  return sameReferences(previous, merged) ? previous : merged
+}
+
+/**
+ * Fold the ordered visible keys into render rows: adjacent work Nodes of one
+ * Turn collapse into a group, everything else stays its own row.
+ * @param order - ordered visible Node keys.
+ * @param store - live Node reader.
+ * @param previous - last layout, whose unmoved rows are reused by reference.
+ * @returns the render layout in `order` sequence.
+ */
+export function chatRowLayout(
+  order: readonly string[],
+  store: ChatNodeStore,
+  previous: readonly ChatRow[] = EMPTY_LIST,
+): readonly ChatRow[] {
+  const rows: ChatRow[] = []
+  let turn: number | undefined
+  let keys: string[] = []
+  const flush = (): void => {
+    const first = keys[0]
+    if (turn === undefined || first === undefined) return
+    rows.push({ kind: 'work-group', id: `${turn}:${first}`, turn, keys })
+    turn = undefined
+    keys = []
+  }
+  for (const key of order) {
+    const node = store.get(key)
+    const owner = node === undefined ? undefined : locationCoordinates(node.location).turn
+    if (node === undefined || owner === undefined || !isWorkNode(node)) {
+      flush()
+      rows.push({ kind: 'node', key })
+      continue
+    }
+    if (owner !== turn) flush()
+    turn = owner
+    keys.push(key)
+  }
+  flush()
+  return updateRows(previous, rows)
 }
 
 interface LegacyContribution {
@@ -385,6 +456,7 @@ export class ChatSnapshotBuilder implements ConversationViewBuilder<ChatConversa
   private readonly locations = new MutableChatLocationIndex()
   private readonly legacy = new LegacySliceBuilder()
   private order: readonly string[] = EMPTY_KEYS
+  private rows: readonly ChatRow[] = EMPTY_LIST
   readonly empty: ChatSnapshot
 
   constructor() {
@@ -398,6 +470,7 @@ export class ChatSnapshotBuilder implements ConversationViewBuilder<ChatConversa
     this.store.replace(input.nodes)
     this.order = orderedVisible(input.nodes).map(node => node.key)
     this.locations.rebuild(this.order, this.store)
+    this.rows = chatRowLayout(this.order, this.store, this.rows)
     return this.snapshot(input.timeline, this.legacy.replace(input.nodes, input.timeline))
   }
 
@@ -406,6 +479,9 @@ export class ChatSnapshotBuilder implements ConversationViewBuilder<ChatConversa
     readonly timeline: ConversationTimelineSnapshot
   }): ChatSnapshot {
     let structural = false
+    // A step that starts speaking leaves its work group without moving in the
+    // flow, so row layout has a change signal of its own.
+    let regrouped = false
     const contentOnly: ChatConversationViewNode[] = []
     for (const node of input.upserts) {
       const previous = this.store.get(node.key)
@@ -414,6 +490,7 @@ export class ChatSnapshotBuilder implements ConversationViewBuilder<ChatConversa
         || previous.visibility !== node.visibility
         || locationIdentity(previous.location) !== locationIdentity(node.location)
       structural ||= nodeStructural
+      regrouped ||= previous !== undefined && isWorkNode(previous) !== isWorkNode(node)
       if (!nodeStructural) contentOnly.push(node)
     }
     this.store.upsert(input.upserts)
@@ -421,6 +498,9 @@ export class ChatSnapshotBuilder implements ConversationViewBuilder<ChatConversa
       const next = orderedVisible(this.store.values()).map(node => node.key)
       this.order = sameReferences(this.order, next) ? this.order : next
       this.locations.rebuild(this.order, this.store)
+    }
+    if (structural || regrouped) {
+      this.rows = chatRowLayout(this.order, this.store, this.rows)
     }
     this.locations.touch(contentOnly)
     return this.snapshot(input.timeline, this.legacy.apply(input.upserts, input.timeline))
@@ -432,6 +512,7 @@ export class ChatSnapshotBuilder implements ConversationViewBuilder<ChatConversa
   ): ChatSnapshot {
     return {
       order: this.order,
+      rows: this.rows,
       nodes: this.store,
       locations: this.locations,
       timeline,

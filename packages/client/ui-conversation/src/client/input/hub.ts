@@ -16,6 +16,7 @@ import type { ComposerKeyboard, DraftAttachmentId, SessionInputResolver, Session
 import type { InputSubmitMode } from '../contract/composer-submission.ts'
 import type { PopupDismissFace } from './facade.ts'
 import { SessionInputShell } from './facade.ts'
+import type { PromptHistory } from './prompt-history.ts'
 
 /** Structural command face for per-session popup resolution. */
 interface CommandFace {
@@ -40,10 +41,12 @@ export class InputHub implements SessionInputResolver {
   /**
    * @param ctx - client root context (services resolved lazily per call — boot order stays free).
    * @param t - conversation-namespace translate thunk (reads the active locale at call time).
+   * @param history - prompt ring fed by every accepted submission; omit where the composer offers no completions.
    */
   constructor(
     private readonly rootCtx: ClientContext,
     private readonly t: TranslateNS<'conversation'>,
+    private readonly history?: PromptHistory,
   ) {}
 
   /**
@@ -153,6 +156,7 @@ export class InputHub implements SessionInputResolver {
     mode: InputSubmitMode,
   ): void {
     if (text === '' && imageIds.length === 0) return
+    this.history?.record(text)
     const shell = this.shells.get(session.sessionId)
     // Commit, not an editable clear: undo must not resurrect sent content.
     shell?.commitSend(imageIds)

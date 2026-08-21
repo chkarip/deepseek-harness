@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-21-web-activity-monitor-mascot.md
+2026-08-21-web-activity-monitor-mascot.md: 98658d6ea2d33f79529b5a5bc889aa06a5051f15
+2026-08-21-web-activity-monitor-mascot.zh.md: c6e24c7c3e4d67051c582baa6df52f1cec0a995d

@@ -3,6 +3,7 @@ import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { ToolCallTree } from './tool/ToolCallTree.tsx'
 import { ToolDetails } from './tool/ToolDetails.tsx'
+import { ToolWorkSummary } from './tool/ToolWorkSummary.tsx'
 import { CONVERSATION_NS as NS } from './locale.ts'
 import { askQuestionToolview } from './tool/toolviews/ask-question-row.tsx'
 import { bashToolviewSample } from './tool/toolviews/bash-sample.tsx'
@@ -28,6 +29,12 @@ export function apply(ctx: ClientContext): void {
       'tool.call.toolview': { kind: 'keyed', scope: 'session' },
     },
   }, ToolCallTree))
+
+  ctx.slots.inject('conversation.chat.workSummary', () => ctx.slots.register({
+    name: 'conversation.chat.workSummary',
+    key: 'tool-call',
+    locale: NS,
+  }, ToolWorkSummary))
 
   ctx.slots.inject('conversation.details.tool', () => ctx.slots.register({
     name: 'conversation.details.tool',

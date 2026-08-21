@@ -4,6 +4,7 @@ import type {
   ConversationTurnDataMap, LegacyConversationSlice, PartialAssistant, RunningToolCall,
   ToolCallBlock, TurnLocation,
 } from '@deepseek-ai/dsh-client-runtime/client'
+import { chatRowLayout } from '../src/client/conversation-nodes/chat-snapshot-builder.ts'
 import { deriveTurnMetrics } from '../src/client/chat/turn-metrics.ts'
 
 const EMPTY: readonly never[] = []
@@ -266,10 +267,21 @@ export function chatSnapshotFixture(input: {
       data: tailData,
     })
   }
+  // A Context's Location is fixed at its start event, but this fixture derives
+  // it from the legacy node alone — and a settled ToolResultNode carries no
+  // turn. Inherit the Location already established for the key so a settling
+  // call does not appear to leave its turn.
+  const located = nodes.map((node) => {
+    if (node.location.kind !== 'session') return node
+    const before = previous?.nodes.get(node.key)
+    return before === undefined || before.location.kind === 'session'
+      ? node
+      : { ...node, location: before.location }
+  })
   const store = previous?.nodes instanceof FixtureNodeStore ? previous.nodes : new FixtureNodeStore()
-  store.replace(nodes)
+  store.replace(located)
   const byKey = new Map(store.values().map(node => [node.key, node]))
-  const nextOrder = nodes.map(node => node.key)
+  const nextOrder = located.map(node => node.key)
   const order = previous !== undefined && sameValues(previous.order, nextOrder) ? previous.order : nextOrder
   const byTurn = new Map<number, readonly string[]>()
   for (const turn of turns.keys()) {
@@ -290,6 +302,7 @@ export function chatSnapshotFixture(input: {
     : { turnOrder: [...turns.keys()], turns }
   return {
     order,
+    rows: chatRowLayout(order, store, previous?.rows),
     nodes: store,
     locations,
     timeline,

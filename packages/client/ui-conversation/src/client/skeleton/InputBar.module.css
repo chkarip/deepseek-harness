@@ -185,6 +185,13 @@
   color: var(--dsw-alias-label-caption);
 }
 
+.ghostText {
+  color: var(--dsw-alias-label-caption);
+  opacity: 0.55;
+  user-select: none;
+  pointer-events: none;
+}
+
 /* Machine pending dot (adjudicating / submitting). */
 .pending {
   width: 8px;

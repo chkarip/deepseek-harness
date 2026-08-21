@@ -73,7 +73,7 @@ export type {
 } from './contract/store.ts'
 export type {
   AssistantBlock, AssistantMessageNode, AssistantProvenanceView, AssistantRequestConfig,
-  AssistantTiming, ChatLocationNodeIndex, ChatNodeStore, ChatSnapshot,
+  AssistantTiming, ChatLocationNodeIndex, ChatNodeStore, ChatRow, ChatSnapshot, ChatWorkGroupRow,
   CommandNode, CompactionSummaryNode, ComposerPhase,
   ContextMessageNode, ConversationNode, ConversationSnapshot, ModelRetryNode, QueuedMessage,
   LegacyConversationSlice, PartialAssistant, RunningToolCall,

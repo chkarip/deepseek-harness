@@ -391,9 +391,34 @@ export interface LegacyConversationSlice {
   readonly runningCalls: readonly RunningToolCall[]
 }
 
+/**
+ * One collapsible run of adjacent intermediate work Nodes inside one Turn.
+ * Membership is the builder's decision; the row carries the owning Turn so the
+ * renderer can read that Turn's open/closed status off the timeline.
+ */
+export interface ChatWorkGroupRow {
+  readonly kind: 'work-group'
+  /** Stable across membership growth: owning Turn plus the first member key. */
+  readonly id: string
+  readonly turn: number
+  /** Member Node keys in render order; never empty. */
+  readonly keys: readonly string[]
+}
+
+/** One rendered flow row: a single Node, or a grouped run of work Nodes. */
+export type ChatRow =
+  | { readonly kind: 'node'; readonly key: string }
+  | ChatWorkGroupRow
+
 /** Incremental Chat publication with immutable order and stable live keyed readers. */
 export interface ChatSnapshot {
   readonly order: readonly string[]
+  /**
+   * Render layout over {@link ChatSnapshot.order}: the same keys in the same
+   * sequence, with intermediate work runs folded into collapsible groups.
+   * Scroll anchoring and paging stay on `order`.
+   */
+  readonly rows: readonly ChatRow[]
   readonly nodes: ChatNodeStore
   readonly locations: ChatLocationNodeIndex
   readonly timeline: ConversationTimelineSnapshot
@@ -411,6 +436,7 @@ export const EMPTY_CONVERSATION_VIEWS: ConversationViewSnapshotStore = {
 /** Empty Chat target used before a view builder is registered. */
 export const EMPTY_CHAT_SNAPSHOT: ChatSnapshot = {
   order: EMPTY_LIST,
+  rows: EMPTY_LIST,
   nodes: {
     get: () => undefined,
     values: () => EMPTY_LIST,

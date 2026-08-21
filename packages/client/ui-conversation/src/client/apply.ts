@@ -23,6 +23,7 @@ import type { IConversation } from './service.ts'
 import { ComposerBlockRegistry } from './input/blocks.ts'
 import type { ComposerBlock } from './input/blocks.ts'
 import { InputHub } from './input/hub.ts'
+import { PromptHistory, browserPromptStorage } from './input/prompt-history.ts'
 import { ComposerSubmissionPolicy } from './input/submission-policy.ts'
 import { InputBar } from './skeleton/InputBar.tsx'
 import { EnterBehaviorRow } from './settings/EnterBehaviorRow.tsx'
@@ -165,9 +166,14 @@ export function apply(ctx: Context): void {
     version: () => slots.getVersion('conversation.view'),
   }
 
+  // Browser-local prompt ring behind the composer's inline ghost completion.
+  // Plugin-owned rather than module-global: one store per plugin instance, fed
+  // by accepted submissions and read by the bar through its injected face.
+  const promptHistory = new PromptHistory(browserPromptStorage())
+
   // The per-session input machine registry (SessionInputResolver face; published as
   // ctx.conversation.input by the service below sharing this one instance).
-  const inputHub = new InputHub(ctx, t)
+  const inputHub = new InputHub(ctx, t, promptHistory)
 
   // The composer-block registry: a plugin that knows a session cannot send —
   // ui-model-selection, when no adapter serves the session's route — raises a block
@@ -297,6 +303,7 @@ export function apply(ctx: Context): void {
           toggleCommandMenu: undefined,
           stop: undefined,
           command: undefined,
+          promptGhost: draft => promptHistory.ghost(draft),
           hooks: { notices: ABSENT_NOTICES, lexicon: ABSENT_LEXICON, menuLauncher: ABSENT_MENU_LAUNCHER },
         }
       }
@@ -351,6 +358,7 @@ export function apply(ctx: Context): void {
           const result = await session.command(line)
           return result.ok && result.value.matched
         },
+        promptGhost: draft => promptHistory.ghost(draft),
         hooks: {
           notices: shell.notices,
           lexicon: shell.lexicon,
@@ -381,6 +389,7 @@ export function apply(ctx: Context): void {
     locale: NS,
     children: {
       'conversation.chat.node': { kind: 'keyed', scope: 'session', inject: CHAT_NODE_INJECT },
+      'conversation.chat.workSummary': { kind: 'keyed', scope: 'session' },
     },
     store: chatStore,
     inject: (sessionId: SessionId, actions: BoundActions<typeof chatStore>): ChatViewInjected => {

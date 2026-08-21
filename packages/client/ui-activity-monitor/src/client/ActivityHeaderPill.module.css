@@ -1,0 +1,225 @@
+.root {
+  position: relative;
+  display: inline-flex;
+}
+
+.pillBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--dsh-surface-subtle, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--dsh-border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 16px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pillBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.speedText {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--dsh-font-mono, monospace);
+  color: #00e5ff;
+}
+
+.idleText {
+  font-size: 11px;
+  font-family: var(--dsh-font-mono, monospace);
+  color: var(--dsh-text-muted, #a1a1aa);
+}
+
+.modalBackdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modalCard {
+  background: var(--dsh-surface-card, #18181b);
+  border: 1px solid var(--dsh-border-default, rgba(255, 255, 255, 0.15));
+  border-radius: var(--dsh-radius-lg, 12px);
+  width: 100%;
+  max-width: 580px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  animation: modalScale 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalScale {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--dsh-border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.modalTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dsh-text-primary, #ffffff);
+}
+
+.closeBtn {
+  background: transparent;
+  border: none;
+  color: var(--dsh-text-muted, #a1a1aa);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.closeBtn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.modalBody {
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mascotPlayground {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 16px;
+  background: var(--dsh-surface-subtle, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--dsh-border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--dsh-radius-md, 8px);
+  padding: 16px;
+  align-items: center;
+}
+
+.mascotCenter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.petPrompt {
+  font-size: 10px;
+  color: var(--dsh-text-muted, #71717a);
+  margin-top: 4px;
+}
+
+.petStats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.statRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--dsh-text-secondary, #d4d4d8);
+}
+
+.statVal {
+  font-weight: 600;
+  font-family: var(--dsh-font-mono, monospace);
+  color: var(--dsh-text-primary, #ffffff);
+}
+
+.skinPicker {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.skinBtn {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--dsh-border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 11px;
+  color: var(--dsh-text-secondary, #d4d4d8);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.skinBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.skinBtn.skinActive {
+  background: rgba(0, 229, 255, 0.15);
+  border-color: #00e5ff;
+  color: #00e5ff;
+  font-weight: 600;
+}
+
+.playgroundActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.feedBtn {
+  flex: 2;
+  background: #3a86ff;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.feedBtn:hover {
+  background: #2563eb;
+}
+
+.soundBtn {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--dsh-text-primary, #ffffff);
+  border: 1px solid var(--dsh-border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.graphSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sectionLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--dsh-text-muted, #71717a);
+}

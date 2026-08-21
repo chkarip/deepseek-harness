@@ -1,0 +1,85 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  background: var(--dsh-surface-subtle, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--dsh-border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--dsh-radius-md, 8px);
+  padding: 8px 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.liveSpeed {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.liveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dsh-text-muted, #71717a);
+  display: inline-block;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.liveDot[data-active] {
+  background: #00e5ff;
+  box-shadow: 0 0 8px #00e5ff;
+  animation: pulse 1.2s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.2); }
+}
+
+.speedValue {
+  font-size: 16px;
+  font-weight: 700;
+  font-family: var(--dsh-font-mono, monospace);
+  color: var(--dsh-text-primary, #ffffff);
+}
+
+.speedUnit {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--dsh-text-muted, #a1a1aa);
+}
+
+.metrics {
+  display: flex;
+  gap: 12px;
+}
+
+.metricItem {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.metricLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--dsh-text-muted, #71717a);
+}
+
+.metricVal {
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--dsh-font-mono, monospace);
+  color: var(--dsh-text-secondary, #d4d4d8);
+}
+
+.canvas {
+  width: 100%;
+  display: block;
+}

@@ -5,7 +5,7 @@
  * arms over the real slot stack.
  */
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, fireEvent, render } from '@testing-library/react'
 import { Context } from '@deepseek-ai/cordis'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
@@ -61,5 +61,31 @@ describe('buildRenderApp', () => {
     b.runtime.sessions.list.update((draft) => { draft.current = 'ghost' as SessionId })
     await b.runtime.flush()
     expect(document.title).toBe('Product')
+  })
+
+  it('projects running and completed title prefixes on session running state changes', async () => {
+    document.title = 'Product'
+    const b = await bench()
+    await b.runtime.sessions.add({ id: 's1', summary: { title: 'First', running: false } })
+    render(<>{b.renderApp()}</>)
+    expect(document.title).toBe('First — Product')
+
+    // Transition to running
+    b.runtime.sessions.list.update((draft) => {
+      draft.byId['s1' as SessionId]!.running = true
+    })
+    await b.runtime.flush()
+    expect(document.title).toBe('● First — Product')
+
+    // Transition to finished
+    b.runtime.sessions.list.update((draft) => {
+      draft.byId['s1' as SessionId]!.running = false
+    })
+    await b.runtime.flush()
+    expect(document.title).toBe('✓ First — Product')
+
+    // Refocus tab clears the completed prefix
+    fireEvent.focus(window)
+    expect(document.title).toBe('First — Product')
   })
 })

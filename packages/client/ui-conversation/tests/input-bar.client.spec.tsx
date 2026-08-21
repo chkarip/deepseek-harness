@@ -19,6 +19,7 @@ import type { DraftAttachmentId } from '../src/client/input/contract.ts'
 import { InputBar } from '../src/client/skeleton/InputBar.tsx'
 import type { InputBarProps } from '../src/client/skeleton/InputBar.tsx'
 import { zh } from '../src/client/locales.ts'
+import { PromptHistory } from '../src/client/input/prompt-history.ts'
 
 afterEach(cleanup)
 
@@ -89,6 +90,8 @@ interface BenchOptions {
   commandMenuOpen?: boolean
   busyEnter?: 'queue' | 'steer'
   toggleCommandMenu?: (selection: { start: number; end: number }) => void
+  /** Earlier prompts the ghost completion may draw on (most recent last). */
+  promptHistory?: readonly string[]
 }
 
 /** One pending queue row (the runtime snapshot shape, as the dock tests build it). */
@@ -132,6 +135,8 @@ function bench(over?: BenchOptions) {
   if (over?.draft !== undefined && over.draft !== '') shell.setDraft(over.draft)
   if (over?.attachments !== undefined) shell.addImages(over.attachments.map(attachment => attachment.id))
   const stop = vi.fn()
+  const history = new PromptHistory()
+  for (const prompt of over?.promptHistory ?? []) history.record(prompt)
   const removeImage = vi.fn((id: DraftAttachmentId) => { shell.removeImage(id) })
   const menuLauncher = createSnapshotStore<string | null>(over?.commandMenuOpen === true ? 'command' : null)
   const slotCalls: { key: string; owner: unknown }[] = []
@@ -172,6 +177,7 @@ function bench(over?: BenchOptions) {
       return gesture === 'enter' ? preferred : preferred === 'queue' ? 'steer' : 'queue'
     },
     toggleCommandMenu: over?.toggleCommandMenu ?? vi.fn(),
+    promptGhost: draft => history.ghost(draft),
     useNotices: bindSnapshotSelector(shell.notices),
     useLexicon: bindSnapshotSelector(shell.lexicon),
     useMenuLauncher: bindSnapshotSelector(menuLauncher),
@@ -1322,5 +1328,50 @@ describe('command launcher chrome and control seats', () => {
     cleanup()
     const live = bench({ running: true, permissions })
     expect((live.view.getByLabelText(/^访问模式/) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  describe('ghost text completion', () => {
+    const PRIOR = 'Explain the architecture of this project'
+
+    it('renders the completion of an earlier prompt in the backdrop layer', () => {
+      const { view } = bench({ draft: 'Exp', promptHistory: [PRIOR] })
+      const ghost = view.container.querySelector('[data-decoration="ghost"]')
+      expect(ghost?.textContent).toBe('lain the architecture of this project')
+    })
+
+    it('offers nothing when no earlier prompt extends the draft', () => {
+      const { view } = bench({ draft: 'Exp' })
+      expect(view.container.querySelector('[data-decoration="ghost"]')).toBeNull()
+    })
+
+    it('accepts the completion on ArrowRight at the end of the draft', () => {
+      const { textarea, shell } = bench({ draft: 'Exp', promptHistory: [PRIOR] })
+      textarea.setSelectionRange(3, 3)
+      fireEvent.keyDown(textarea, { key: 'ArrowRight' })
+      expect(shell.snapshot.draft).toBe(PRIOR)
+    })
+
+    it('leaves Tab to focus movement instead of accepting the completion', () => {
+      const { textarea, shell } = bench({ draft: 'Exp', promptHistory: [PRIOR] })
+      const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+      textarea.dispatchEvent(event)
+      expect(event.defaultPrevented).toBe(false)
+      expect(shell.snapshot.draft).toBe('Exp')
+    })
+
+    it('dismisses the completion on Escape and restores it on the next keystroke', () => {
+      const { view, textarea } = bench({ draft: 'Exp', promptHistory: [PRIOR] })
+      fireEvent.keyDown(textarea, { key: 'Escape' })
+      expect(view.container.querySelector('[data-decoration="ghost"]')).toBeNull()
+
+      fireEvent.change(textarea, { target: { value: 'Expl', selectionStart: 4, selectionEnd: 4 } })
+      const ghost = view.container.querySelector('[data-decoration="ghost"]')
+      expect(ghost?.textContent).toBe('ain the architecture of this project')
+    })
+
+    it('stands down while the command menu owns the caret space and Escape', () => {
+      const { view } = bench({ draft: 'Exp', promptHistory: [PRIOR], commandMenuOpen: true })
+      expect(view.container.querySelector('[data-decoration="ghost"]')).toBeNull()
+    })
   })
 })

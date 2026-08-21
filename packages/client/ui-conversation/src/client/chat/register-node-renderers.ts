@@ -7,6 +7,7 @@ import {
   TurnMaxTokensNodeView, UnknownNodeView, UserMessageNodeView,
 } from './MessageItem.tsx'
 import { TurnTailNodeView } from './TurnTailNodeView.tsx'
+import { ReasoningWorkSummary } from './WorkSummaryViews.tsx'
 
 /**
  * Register this package's business renderers behind the keyed Chat Node seat.
@@ -48,4 +49,6 @@ export function registerChatNodeRenderers(ctx: Context): void {
   }, TurnTailNodeView))
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
     { name: 'conversation.chat.node', key: 'unknown', locale: NS }, UnknownNodeView))
+  ctx.slots.inject('conversation.chat.workSummary', () => ctx.slots.register(
+    { name: 'conversation.chat.workSummary', key: 'assistant-step', locale: NS }, ReasoningWorkSummary))
 }

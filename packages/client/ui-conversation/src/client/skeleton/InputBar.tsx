@@ -45,7 +45,7 @@ export type InputBarProps = ComposerBarProps
 
 export function InputBar({
   useSession, useInput, inputActions, keyboard, addImages, removeImage, draftImages,
-  resolveSubmitMode, toggleCommandMenu, stop, command, t,
+  resolveSubmitMode, toggleCommandMenu, stop, command, promptGhost, t,
   renderSlot, useNotices, useLexicon, useMenuLauncher,
   useProjection, sessionId, variant, disabled: inert = false, blocked,
   workspacePickerOpen = false, onRequestWorkspace,
@@ -75,6 +75,11 @@ export function InputBar({
   const empty = draft.trim() === '' && attachments.length === 0
   const [preview, setPreview] = useState<ComposerAttachment | null>(null)
   const [dragActive, setDragActive] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
+  const [caretAtEnd, setCaretAtEnd] = useState(true)
+  useEffect(() => {
+    setDismissed(false)
+  }, [draft])
   // Transient error banner (image-intake rejections and prompt failures): the
   // seq keys the Toast so an identical repeated message restarts the
   // hold-then-fade cycle instead of silently reusing the faded one.
@@ -146,6 +151,17 @@ export function InputBar({
   const textareaDisabled = removed || (locked && !workspaceTrigger)
   const canSteerQueue = !locked && !machineBusy && !commandMenuOpen && empty && running && subagent === null
     && input.queue.some(row => row.placement === 'queued')
+
+  const deco = input === undefined ? INERT_DECORATIONS : deriveDecorations(input, lexicon)
+
+  // The ghost is the lowest layer of the composer's overlay stack: a claim
+  // hint and an open command menu both own the space behind the caret, and
+  // both own Escape, so neither may coexist with a ghost.
+  const ghostSuffix = useMemo(() => {
+    if (dismissed || !caretAtEnd || draft === '' || locked || machineBusy) return null
+    if (deco.hint !== null || commandMenuOpen) return null
+    return promptGhost(draft)
+  }, [dismissed, caretAtEnd, draft, locked, machineBusy, deco.hint, commandMenuOpen, promptGhost])
 
   useEffect(() => {
     if (input === undefined || inputActions === undefined) return
@@ -284,6 +300,18 @@ export function InputBar({
     // keyCode 229 is the legacy IME-composition signal engines emit without isComposing.
     // oxlint-disable-next-line typescript/no-deprecated
     const composing = composingRef.current || e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229
+    // ArrowRight at the end of the draft accepts the ghost. Tab deliberately
+    // does NOT: a ghost stands for most of what anyone types, so binding Tab
+    // would take the focus key away from the whole composer.
+    if (e.key === 'ArrowRight' && ghostSuffix !== null && !composing
+      && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const el = inputRef.current
+      if (el === null || el.selectionStart === draft.length) {
+        e.preventDefault()
+        acceptGhost(ghostSuffix)
+        return
+      }
+    }
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       if (keyboard.arbitrate(e.key === 'ArrowUp' ? 'up' : 'down', composing) === 'consumed') e.preventDefault()
       return
@@ -291,8 +319,18 @@ export function InputBar({
     if (e.key === 'Escape') {
       // Escape layering: an open overlay closes; claimed without an overlay
       // does NOT release (backspacing the token is the only exit gesture).
+      // The ghost is under both, and cannot be showing while either is (see
+      // ghostSuffix), so dismissing it last cannot swallow their Escape.
       keyboard.dismissPopup()
-      if (keyboard.arbitrate('escape', composing) === 'consumed') e.preventDefault()
+      const arbitrated = keyboard.arbitrate('escape', composing)
+      if (arbitrated === 'consumed') {
+        e.preventDefault()
+        return
+      }
+      if (ghostSuffix !== null) {
+        e.preventDefault()
+        setDismissed(true)
+      }
       return
     }
     if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z' || e.key === 'y')) {
@@ -339,14 +377,31 @@ export function InputBar({
     ))
   }
 
+  /**
+   * Commit the ghost into the draft and park the caret at the end.
+   * @param suffix - the ghost text standing ahead of the caret.
+   */
+  function acceptGhost(suffix: string): void {
+    if (keyboard === undefined) return
+    const full = draft + suffix
+    keyboard.setDraft(full)
+    keyboard.track(full, full.length)
+    const el = inputRef.current
+    if (el !== null) {
+      el.setSelectionRange(full.length, full.length)
+      restoreCaret(el, full.length)
+    }
+  }
+
   const onChange = (e: ChangeEvent<HTMLTextAreaElement>): void => {
     if (keyboard === undefined || locked) return // disabled/read-only states cannot edit the draft
     if (machineBusy) return // submitting is the read-only span; adjudicating holds the pending lock
     const next = e.target.value
+    setDismissed(false)
+    const sel = e.target.selectionStart
+    setCaretAtEnd(sel === next.length && e.target.selectionEnd === next.length)
     keyboard.setDraft(next)
-    // selectionStart is number|null in lib.dom; the type-aware lint program narrows it.
-    // oxlint-disable-next-line typescript/no-unnecessary-condition
-    keyboard.track(next, e.target.selectionStart ?? next.length)
+    keyboard.track(next, sel)
   }
 
   // ---- chip atomicity (DOM layer; the machine sees only transactions) ----
@@ -518,6 +573,8 @@ export function InputBar({
   })), [attachments, t])
 
   const onSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>): void => {
+    const el = e.currentTarget
+    setCaretAtEnd(el.selectionStart === draft.length && el.selectionEnd === draft.length)
     // Any caret/selection gesture ends a live paste attempt (the machine
     // cannot observe DOM selection). Cheap no-op when none is live.
     if (keyboard !== undefined && keyboard.snapshot.paste !== undefined) keyboard.invalidatePaste()
@@ -565,7 +622,6 @@ export function InputBar({
   // claim token highlights through behind the textarea glyphs; each U+FFFC
   // placeholder renders as a chip (the textarea's own glyph is invisible, the
   // backdrop chip supplies the visual); the claim hint is ghost text.
-  const deco = input === undefined ? INERT_DECORATIONS : deriveDecorations(input, lexicon)
   const backdrop: ReactNode[] = []
   {
     // Segment boundaries: the token range end, every chip offset, and every
@@ -634,6 +690,8 @@ export function InputBar({
       const translated = (t as Translate)(hintKey)
       const displayHint = translated !== hintKey ? translated : deco.hint
       backdrop.push(<span key="hint" className={css.hint} data-decoration="hint">{displayHint}</span>)
+    } else if (ghostSuffix !== null) {
+      backdrop.push(<span key="ghost" className={css.ghostText} data-decoration="ghost">{ghostSuffix}</span>)
     }
   }
 

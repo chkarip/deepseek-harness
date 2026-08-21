@@ -10,6 +10,7 @@ import { makeTranslate, SlotTestRuntime } from '@deepseek-ai/dsh-client-test-run
 import type { QueuedMessage, SessionFace } from '@deepseek-ai/dsh-client-runtime/client'
 import { ComposerBlockRegistry } from '../src/client/input/blocks.ts'
 import { InputHub } from '../src/client/input/hub.ts'
+import { PromptHistory } from '../src/client/input/prompt-history.ts'
 import { ConversationController, UnsupportedImageMediaTypeError } from '../src/client/service.ts'
 import { zh } from '../src/client/locales.ts'
 
@@ -25,7 +26,8 @@ async function bench(readAttachment?: SessionFace['readAttachment']) {
   })
   // config.input is required (the apply shares its hub with the inject
   // factories); the bench passes its own instance explicitly.
-  const hub = new InputHub(runtime.ctx, makeTranslate(zh, {}))
+  const history = new PromptHistory()
+  const hub = new InputHub(runtime.ctx, makeTranslate(zh, {}), history)
   const fiber = runtime.ctx.plugin(ConversationController, {
     input: hub,
     blocks: new ComposerBlockRegistry(),
@@ -34,7 +36,7 @@ async function bench(readAttachment?: SessionFace['readAttachment']) {
   const root = runtime.ctx.get('conversation') as ConversationController
   const scoped = runtime.sessions.scope('s1')!.get('conversation') as ConversationController
   const shell = hub.shellFor(runtime.sessions.binding('s1')!)
-  return { runtime, fiber, root, scoped, hub, shell, prompt, updateQueue, cancel, loadOlder }
+  return { runtime, fiber, root, scoped, hub, shell, history, prompt, updateQueue, cancel, loadOlder }
 }
 
 describe('ConversationController', () => {
@@ -143,6 +145,30 @@ describe('ConversationController', () => {
     }).await()
     const orphan = bare.get('conversation') as ConversationController
     await expect(orphan.send('x')).rejects.toThrow(/sessions service unavailable/)
+  })
+})
+
+describe('InputHub prompt history', () => {
+  it('records what the sink actually sent, most recent first', async () => {
+    const b = await bench()
+    b.shell.setDraft('first prompt')
+    b.shell.submit('queue')
+    await vi.waitFor(() => { expect(b.prompt).toHaveBeenCalledTimes(1) })
+
+    b.shell.setDraft('second prompt')
+    b.shell.submit('queue')
+    await vi.waitFor(() => { expect(b.prompt).toHaveBeenCalledTimes(2) })
+
+    expect(b.history.list()).toEqual(['second prompt', 'first prompt'])
+    await b.runtime.dispose()
+  })
+
+  it('records nothing for a submission the sink rejects as empty', async () => {
+    const b = await bench()
+    b.shell.submit('queue')
+    expect(b.prompt).not.toHaveBeenCalled()
+    expect(b.history.list()).toEqual([])
+    await b.runtime.dispose()
   })
 })
 

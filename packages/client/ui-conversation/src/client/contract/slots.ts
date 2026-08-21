@@ -84,6 +84,19 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
       inject: ChatNodeTurnDataInjected
     }
     /**
+     * The collapsed work group's activity line: keyed dispatch on the LAST
+     * member Node's kind, so each row family names what it was doing ("Read
+     * <path>") without the chat view importing tool presentation. Declared by
+     * the chat view entry; a kind with no entry leaves the group showing its
+     * step count alone.
+     */
+    'conversation.chat.workSummary': {
+      kind: 'keyed'
+      scope: 'session'
+      owner: WorkSummaryOwnerProps
+      keyProps: { [Kind in ChatNodeKind]: { node: ChatNode<Kind> } }
+    }
+    /**
      * The chat view's per-command row hole: keyed dispatch on the command
      * name (`command/run.name`; a run-less cross-window node has none and
      * always lands on the fallback). Declared by the chat view entry; the
@@ -370,6 +383,19 @@ export interface ChatNodeOwnerProps {
 export type ChatNodeViewProps<Kind extends ChatNodeKind = ChatNodeKind> =
   PropsRuntime<'conversation.chat.node', Kind> & PropsLocale<'conversation'>
 
+/**
+ * Owner currency of the work-group summary seat: the addressed Node rides the
+ * keyed props, so this share carries only display context.
+ */
+export interface WorkSummaryOwnerProps {
+  /** Session workspace root; path summaries display relative to it. */
+  cwd?: string | undefined
+}
+
+/** Full props of one registered work-group summary renderer. */
+export type WorkSummaryViewProps<Kind extends ChatNodeKind = ChatNodeKind> =
+  PropsRuntime<'conversation.chat.workSummary', Kind> & PropsLocale<'conversation'>
+
 /** Owner currency of the details panel's Tool output renderer. */
 export interface DetailsToolOwnerProps {
   /** Frozen selected call slice. */
@@ -516,6 +542,12 @@ export interface ComposerBarInjected {
    * Resolves admission: false = rejected/unmatched/transport failure.
    */
   command: ((line: string) => Promise<boolean>) | undefined
+  /**
+   * Inline ghost completion for the current draft: the suffix of the most
+   * recent earlier prompt that extends it, or null when nothing does.
+   * Suggestions are the user's own submitted prompts only, never authored copy.
+   */
+  promptGhost: (draft: string) => string | null
   /**
    * Registrant hooks compartment: the renderer binds these to
    * useNotices/useLexicon (static absent sources without a session — hook
@@ -709,7 +741,8 @@ export interface ChatViewInjected {
 
 /** Full chat-view component props: runtime & its Tool/command/tail render shares & store & injected & locale seat. */
 export type ChatViewSlotProps =
-  PropsRuntime<'conversation.view'> & PropsRenderSlots<'conversation.chat.node'>
+  PropsRuntime<'conversation.view'>
+  & PropsRenderSlots<'conversation.chat.node' | 'conversation.chat.workSummary'>
   & PropsStore<ChatStore> & ChatViewInjected & PropsLocale<'conversation'>
 
 /**

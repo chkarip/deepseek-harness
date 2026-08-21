@@ -20,6 +20,8 @@ Chat 业务行是彼此独立的注册表贡献，不是封闭的内建联合。
 
 Think 行默认保持折叠，并在不展开思维链的情况下暴露实时推理（reasoning）吞吐：当推理块是流式输出尾部时，摘要从结算后的首行切换到最新的非空行，其单行滚动区会随每个 delta 追到行内末端。展开该行会移除移动摘要，让完整推理进入普通页面流，因此页面阅读不会与内部跟随器争夺滚动；结算后恢复左对齐的稳定首行摘要（[决策](../../../.agents/notes/implemented/feature/2026-08-02-web-thinking-tail-scroll.md)）。
 
+中间过程按轮次折叠为一个可展开的分组。成员由 Chat 快照构建器决定：同一轮次中相邻且可见、其材料仅为推理或 tool-call 头部的 Node，会合并为一条 `work-group` 行，而扁平的 `order` 仍然携带同样的 key，因此滚动锚定、分页和按 key 的订阅都停留在未折叠的列表上。一旦某个步骤开始说话，或被中断而冻结，它就会自行离开该分组并渲染为独立行。展开状态跟随其轮次——轮次运行时展开，轮次结束后收起——直到读者手动切换，此后由读者在该视图余下的时间里拥有该状态。收起时，该行通过按 key 分发的 `conversation.chat.workSummary` 席位显示步骤数与该组的最近一次活动，因此每类行各自命名自身：[`ui-tool`](../ui-tool/README.md) 提供工具标题与单行摘要；没有注册条目的 kind 则只保留步骤数。
+
 聊天视图保留工具的消息流位置，但委托其展示。每个已排序的 `tool-call` Conversation Node 都通过 `conversation.chat.node` 的同名 key 分发；详情壳层则通过 `conversation.details.tool` 传递当前选中的调用。组装后的 Web bundle 为该 Chat Node key 注册 [`ui-tool`](../ui-tool/README.md)，由后者渲染运行时已投影的递归 root/child 树，并负责按名称分发、通用展示和 render-intent 卡片；只有详情席位会在该 renderer 缺席时保留 raw-result fallback。
 
 聊天流会将跨重试轮次连续出现的模型重试节点投影为一个稳定的弱化状态行，并用最新一次尝试更新该行；每个重试事件仍保留在运行时快照与会话日志中。前端倒计时以客户端收到事件的时刻为计划延迟的起点，避免 Host 与浏览器的时钟偏差；剩余时间向上取整到秒，且下限为 1 秒。最近一次尚未完成的重试会显示从左到右的文字渐变动画。后续轮次事实用于区分已开始的尝试与在退避期间取消的尝试，Host 的 running 位只控制实时动画；随后该行会显示静态的已完成或已取消标签。normal 策略行显示有限重试上限；always 策略行显示 `∞`。激活该行会显示最近一次重试的精确延迟和失败消息。客户端运行时会在相应重试节点到达前移除每个失败步骤的流式输出尾部；后续某次尝试成功后，该状态仍保持可见。未进入重试的终态失败会在其轮次边界渲染为持久的内联状态，展示适合显示的持久消息与可选错误码，但不会提供 Host 无法兑现的操作；AUTH 文案绝不会回显提供方给出的凭据片段。
@@ -33,6 +35,8 @@ Think 行默认保持折叠，并在不展开思维链的情况下暴露实时�
 Host 带 placement 的 `session/queue` 快照也会携带待处理 steering。QueueDock 会将其过滤掉，ChatView 则把它投影为会话流末尾带复制操作的用户样式气泡；非用户来源的 next-step 项（注入上下文）改以 `context` placement 广播，领取前不在任何界面渲染。与所有用户样式气泡一样，这里不显示 fork。Host 会等携带该 steering 的持久 `user/message` 进入 mux 流之后再退役 steering。客户端运行时接纳该实时事件时，会在发布快照前退役第一个匹配的当前 steering 单次入队项；历史事件无法隐藏后来复用同一 `MessageId` 的单次入队项。气泡交接时因而不会产生空档或重复，会立即从持久节点恢复复制操作与时钟——steering 气泡与 user 气泡一样不带分支操作（[决策](../../../.agents/notes/implemented/simplification/2026-08-06-user-bubbles-drop-the-branch-action.md)）——并能在重连后从同一权威恢复。
 
 键盘消息提交会根据所寻址会话的运行状态和 steering 能力解析投递方式。空闲时，Enter 和 Cmd/Ctrl+Enter 都执行普通 Queue 发送。主会话运行期间，由 Host settings 支撑的 `ui-conversation.busyEnter` General Settings 偏好会把普通 Enter 分配为 `Queue`（默认值）或 `Steer`，Cmd/Ctrl+Enter 则执行另一种行为；本地 settings 提供方将其存入 `$DSH_HOME/settings.yaml`，因此该选择会跟随同一个用户 home 跨越 Web 端口。Shift+Enter 仍然换行。草稿为空时，Cmd/Ctrl+Enter 改为按 FIFO 顺序把仍在排队的消息全部插话进运行中的轮次（把 dock 的逐条严格 steer 操作应用于整个队列）；空草稿 + 普通 Enter 仍是无操作。这个整队列手势可用时，文本框 placeholder 会提示该手势；owner 提供的 placeholder 仍然优先。已寻址 subagent 即使正在运行，也会让这两个手势都使用其仅支持 Queue 的继续执行传输。该偏好只影响支持 steering 的繁忙态手势对，发送按钮与非键盘提交操作仍使用 Queue。Composer Steer 复用现有尽力而为的 `session.prompt(mode: 'steer')` 约定：如果当前 next-step 窗口在接纳前关闭，AgentLoop 会把消息接纳为下一条唤醒 Queue 轮次，不显示失败，也不会丢失草稿事务。该持久化边界由[Host settings 支撑的偏好决策](../../../.agents/notes/implemented/bug-fix/2026-08-06-host-backed-web-preferences.md)拥有。
+
+输入区会用用户此前提交过的提示词就地补全草稿。`PromptHistory` 是由插件持有的环形记录（最近优先，上限 100 条，镜像到 `localStorage`）：`InputHub` 记录发送汇聚点接受的每一条提示词，输入栏通过注入的 `promptGhost` 读取补全。没有任何预置文案作为建议出现，因此幽灵文本不含未翻译的内容，只提供用户自己写过的文本。它位于输入区浮层栈的最底层——认领提示或已打开的命令菜单占据光标后方的空间并接管 Escape，因此二者都不会与幽灵文本共存，Escape 只有在浮层都不处理时才会落到幽灵文本上。草稿末尾按 ArrowRight 接受补全；Tab 刻意不绑定，因为几乎任何输入都会出现幽灵文本，占用 Tab 会让整个输入区失去焦点切换键。
 
 逐会话 UI 状态中的选择与活跃视图位于已声明的聊天 store（`stores.ts` `createChatStore`）中；InputHub 拥有输入区状态机，并将草稿镜像到该 store 以便持久化。apply 将同一个 store handle 传给严格限定于会话的子树、聊天视图和详情注册，因此每个会话内共享一个实例，框架拥有其生命周期。组件保持纯粹：框架标准工具包提供 `useSession`／`sessionId`、全局 `useSessions`／`useWorkspaces`，以及输入状态机的 `useInput`／`inputActions`；store 表层与 inject factory 提供其余状态和回调。
 

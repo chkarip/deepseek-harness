@@ -29,6 +29,7 @@ export function toolChatSnapshot(
   const empty: readonly string[] = []
   return {
     order: nodes.map(node => node.key),
+    rows: nodes.map(node => ({ kind: 'node', key: node.key })),
     nodes: {
       get: key => byKey.get(key),
       values: () => nodes,

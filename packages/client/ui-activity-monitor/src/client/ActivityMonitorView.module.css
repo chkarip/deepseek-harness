@@ -1,0 +1,201 @@
+.root {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  padding: 24px;
+  background: var(--dsh-surface-base, #09090b);
+  box-sizing: border-box;
+}
+
+.container {
+  max-width: 840px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.heroCard {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 24px;
+  background: var(--dsh-surface-card, #18181b);
+  border: 1px solid var(--dsh-border-default, rgba(255, 255, 255, 0.12));
+  border-radius: var(--dsh-radius-lg, 12px);
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.mascotPane {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--dsh-surface-subtle, rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--dsh-border-subtle, rgba(255, 255, 255, 0.06));
+  border-radius: var(--dsh-radius-md, 8px);
+  padding: 16px;
+}
+
+.mascotStatus {
+  margin-top: 12px;
+}
+
+.statusPill {
+  display: inline-block;
+  background: rgba(0, 229, 255, 0.12);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  color: #00e5ff;
+  border-radius: 14px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.controlsPane {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.paneHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.paneHeader h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--dsh-text-primary, #ffffff);
+  margin: 0;
+}
+
+.toggleBtn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--dsh-border-subtle, rgba(255, 255, 255, 0.12));
+  border-radius: 6px;
+  color: var(--dsh-text-secondary, #d4d4d8);
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.toggleBtn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--dsh-text-primary, #ffffff);
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.statCard {
+  background: var(--dsh-surface-subtle, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--dsh-border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--dsh-radius-md, 8px);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.statLabel {
+  font-size: 11px;
+  color: var(--dsh-text-muted, #a1a1aa);
+}
+
+.statNum {
+  font-size: 16px;
+  font-weight: 700;
+  font-family: var(--dsh-font-mono, monospace);
+  color: var(--dsh-text-primary, #ffffff);
+}
+
+.actionsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.skinRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rowLabel {
+  font-size: 12px;
+  color: var(--dsh-text-muted, #a1a1aa);
+}
+
+.skinButtonGroup {
+  display: flex;
+  gap: 6px;
+}
+
+.skinBtn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--dsh-border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--dsh-text-secondary, #d4d4d8);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.skinBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.skinBtn.skinActive {
+  background: rgba(0, 229, 255, 0.15);
+  border-color: #00e5ff;
+  color: #00e5ff;
+  font-weight: 600;
+}
+
+.interactRow {
+  display: flex;
+  gap: 10px;
+}
+
+.coffeeBtn {
+  background: #3a86ff;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.coffeeBtn:hover {
+  background: #2563eb;
+}
+
+.telemetryCard, .pipelineCard {
+  background: var(--dsh-surface-card, #18181b);
+  border: 1px solid var(--dsh-border-default, rgba(255, 255, 255, 0.12));
+  border-radius: var(--dsh-radius-lg, 12px);
+  padding: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cardTitle {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--dsh-text-muted, #71717a);
+}

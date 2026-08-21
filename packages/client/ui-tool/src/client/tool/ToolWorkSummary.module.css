@@ -1,0 +1,13 @@
+.title {
+  flex: none;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.summary {
+  min-width: 0;
+  overflow: hidden;
+  margin-left: 6px;
+  color: var(--dsw-alias-label-tertiary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

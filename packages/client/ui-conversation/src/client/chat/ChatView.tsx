@@ -1,7 +1,10 @@
 // ChatView: the default conversation view — one stable keyed parent list over
 // final business Nodes, plus paging, pending steering and bottom-follow.
 // Each row dispatches through 'conversation.chat.node'; ui-tool owns the
-// tool-call renderer and its recursive root/subcall composition.
+// tool-call renderer and its recursive root/subcall composition. Intermediate
+// work rows (reasoning steps, tool calls) arrive folded into work groups by
+// the snapshot builder and render inside one WorkGroup disclosure; scroll
+// anchoring and paging stay on the flat `order`.
 //
 // Scroll: when nested under `[data-conversation-scroll]` (active conversation
 // column), that host is the scrollport and this view is flow content; when
@@ -18,6 +21,7 @@ import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
 import { PendingSteeringBubble } from './MessageItem.tsx'
 import { ChatNodeSeat } from './ChatNodeSeat.tsx'
+import { WorkGroup } from './WorkGroup.tsx'
 import { formatRunDuration } from './message-chrome.ts'
 import css from './ChatView.module.css'
 
@@ -148,6 +152,7 @@ export function ChatView({
   fileMentions, t,
 }: ChatViewSlotProps) {
   const order = useSession(s => s.chat.order)
+  const rows = useSession(s => s.chat.rows)
   const nodeStore = useSession(s => s.chat.nodes)
   const timeline = useSession(s => s.chat.timeline)
   const inbox = useSession(s => s.queue)
@@ -379,10 +384,26 @@ export function ChatView({
               </button>
             </div>
           )}
-          {order.map(nodeKey => (
+          {rows.map(row => row.kind === 'work-group' ? (
+            <WorkGroup
+              key={row.id}
+              group={row}
+              running={timeline.turns.get(row.turn)?.status === 'open'}
+              useSession={useSession}
+              selectedCallId={selectedCallId}
+              cwd={cwd}
+              openFile={openFile}
+              inspectCall={inspectCall}
+              forkAt={forkAt}
+              loadImage={loadImage}
+              fileMentions={fileMentions}
+              renderSlot={renderSlot}
+              t={t}
+            />
+          ) : (
             <ChatNodeSeat
-              key={nodeKey}
-              nodeKey={nodeKey}
+              key={row.key}
+              nodeKey={row.key}
               useSession={useSession}
               selectedCallId={selectedCallId}
               cwd={cwd}

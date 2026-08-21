@@ -140,6 +140,7 @@ async function scopedBench(register?: (inputTriggers: InputTriggerService) => vo
     removeImage: () => {},
     draftImages: () => [],
     resolveSubmitMode: () => 'queue',
+    promptGhost: () => null,
     toggleCommandMenu: (selection) => {
       const snapshot = shell.snapshot
       controller.toggleSource('command', {
