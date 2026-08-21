@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unslop"
+  short_description: "Cut AI tells from any writing. Must always apply."
+  default_prompt: "Use $unslop to remove AI patterns and add human voice to the specified text."

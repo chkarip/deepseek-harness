@@ -5,7 +5,7 @@
  * @module @deepseek-ai/dsh-client-ui-panels/client/PanelHandoffAction
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { IconCloseOutline16, IconShareOutline16, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SessionHandoffDelivery } from '@deepseek-ai/dsh-session-handoff/types'
 import type { PanelHandoffActionProps } from './contract.ts'
@@ -14,7 +14,8 @@ import css from './PanelHandoffAction.module.css'
 export function PanelHandoffAction({
   messageId,
   sessionId,
-  useStore,
+  getPanels,
+  subscribePanels,
   relay,
   summarize,
   t,
@@ -29,7 +30,7 @@ export function PanelHandoffAction({
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  const panels = useStore(s => s.panels)
+  const panels = useSyncExternalStore(subscribePanels, getPanels)
   const otherPanels = panels.filter(p => p.sessionId !== undefined && p.sessionId !== sessionId)
   const currentPanel = panels.find(p => p.sessionId === sessionId)
 

@@ -31,6 +31,7 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-panels: dictionaries')
 
   const panelsStore = createPanelsStore()
+  const storeInstance = panelsStore.create()
 
   ctx.slots.register({
     name: 'panels',
@@ -53,9 +54,10 @@ export function apply(ctx: ClientContext): void {
         // (the New Session flow), leaving two panels mirroring one chat.
         const workspacesState = ctx.workspaces.list.getSnapshot()
         const sessionsState = ctx.sessions.list.getSnapshot()
-        const currentWorkspace = sessionsState.current === undefined
+        const currentSessionId = sessionsState.current
+        const currentWorkspace = currentSessionId === undefined
           ? undefined
-          : workspacesState.items.find(item => item.sessionIds.includes(sessionsState.current!))
+          : workspacesState.items.find(item => item.sessionIds.includes(currentSessionId))
         const workspaceId = currentWorkspace?.workspaceId
           ?? workspacesState.recentWorkspaceId
           ?? workspacesState.items[0]?.workspaceId
@@ -111,20 +113,18 @@ export function apply(ctx: ClientContext): void {
       id: 'panel-handoff',
       order: 20,
       locale: NS,
-      store: panelsStore,
-      inject: (
-        _sessionId,
-        actions: BoundActions<ReturnType<typeof createPanelsStore>>,
-      ): PanelHandoffInjected => ({
+      inject: (): PanelHandoffInjected => ({
+        getPanels: () => storeInstance.getSnapshot().panels,
+        subscribePanels: storeInstance.subscribe,
         relay: request => ctx.remote.sessionHandoff.relay(request),
         summarize: async (panelId, sessionId) => {
-          actions.setSummaryState(panelId, 'generating')
+          storeInstance.actions.setSummaryState(panelId, 'generating')
           try {
             const text = await summarizeSession(ctx.sessions, t, sessionId)
-            actions.setPanelSummary(panelId, text === '' ? t('panel.summary.empty') : text)
+            storeInstance.actions.setPanelSummary(panelId, text === '' ? t('panel.summary.empty') : text)
           } catch (error) {
             console.error('[ui-panels] summary generation failed:', error)
-            actions.setSummaryState(panelId, 'error')
+            storeInstance.actions.setSummaryState(panelId, 'error')
           }
         },
       }),

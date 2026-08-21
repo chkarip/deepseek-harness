@@ -10,14 +10,13 @@
  * - Calls injected relay callback with formatted payload
  * - Displays success and error feedback
  */
-import { useSyncExternalStore } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { MessageId } from '@deepseek-ai/dsh-client-connection/client'
 import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { PanelHandoffInjected } from '../src/client/contract.ts'
 import { zh } from '../src/client/locales.ts'
-import { createPanelsStore, type PanelsState } from '../src/client/panels-store.ts'
+import { createPanelsStore } from '../src/client/panels-store.ts'
 import { PanelHandoffAction } from '../src/client/PanelHandoffAction.tsx'
 
 const t = ((key: string, params?: Record<string, unknown>) => {
@@ -42,9 +41,6 @@ function Harness({
   relay?: PanelHandoffInjected['relay']
   summarize?: (panelId: string, sessionId: SessionId) => Promise<void>
 }) {
-  const state = useSyncExternalStore(handle.subscribe, handle.getSnapshot)
-  const useStore = <T,>(sel: (s: PanelsState) => T) => sel(state)
-
   return (
     <PanelHandoffAction
       messageId={messageId}
@@ -55,8 +51,8 @@ function Harness({
       inputActions={{} as never}
       useSessions={vi.fn() as never}
       useWorkspaces={vi.fn() as never}
-      useStore={useStore}
-      actions={handle.actions}
+      getPanels={() => handle.getSnapshot().panels}
+      subscribePanels={handle.subscribe}
       relay={relay}
       summarize={summarize}
       t={t as never}

@@ -7,7 +7,7 @@ import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionHandoffRelayResult, SessionHandoffRequest } from '@deepseek-ai/dsh-session-handoff/types'
 import type { PanelsKey } from './locales.ts'
-import type { createPanelsStore } from './panels-store.ts'
+import type { createPanelsStore, PanelRecord } from './panels-store.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -85,6 +85,8 @@ import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 
 /** Injected business face of the panel handoff assistant action entry. */
 export interface PanelHandoffInjected {
+  getPanels: () => readonly PanelRecord[]
+  subscribePanels: (onChange: () => void) => () => void
   relay: (request: SessionHandoffRequest) => Promise<RemoteResult<SessionHandoffRelayResult>>
   summarize: (panelId: string, sessionId: SessionId) => Promise<void>
 }
@@ -92,6 +94,5 @@ export interface PanelHandoffInjected {
 /** Full props of the panel handoff assistant action. */
 export type PanelHandoffActionProps =
   PropsRuntime<'conversation.chat.assistant-actions'>
-  & PropsStore<ReturnType<typeof createPanelsStore>>
   & PanelHandoffInjected
   & PropsLocale<'panels'>
