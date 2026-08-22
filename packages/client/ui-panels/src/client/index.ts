@@ -33,7 +33,11 @@ export function apply(ctx: ClientContext): void {
   const panelsStore = createPanelsStore()
   const storeInstance = panelsStore.create()
 
-  ctx.slots.register({
+  // 'panels' is declared by ui-layout's root registration, and plugin apply
+  // order follows service readiness, not bundle order: registering directly
+  // throws whenever this plugin's services resolve first. inject() waits for
+  // the declaration and re-registers across its lifetimes.
+  ctx.slots.inject('panels', () => ctx.slots.register({
     name: 'panels',
     locale: NS,
     store: panelsStore,
@@ -105,7 +109,7 @@ export function apply(ctx: ClientContext): void {
       openSession: (sessionId) => { ctx.sessions.open(sessionId) },
       openWindow: (sessionId) => { ctx.sessions.openWindow(sessionId) },
     }),
-  }, PanelWorkspace)
+  }, PanelWorkspace))
 
   ctx.slots.inject('conversation.chat.assistant-actions', () => {
     return ctx.slots.register({
