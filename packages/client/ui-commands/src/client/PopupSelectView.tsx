@@ -95,6 +95,12 @@ export function PopupSelectView({ popup, t }: PopupSelectViewProps) {
         ev.preventDefault()
         void popup.select(state.active)
         return
+      case 'Tab':
+        // Autocomplete the highlighted row into the search text; the shell
+        // stays open for refinement or a final Enter to select.
+        ev.preventDefault()
+        popup.complete()
+        return
       case 'Escape':
         ev.preventDefault()
         popup.dismiss({ focusComposer: true })

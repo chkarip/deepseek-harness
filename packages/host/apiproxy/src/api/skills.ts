@@ -18,6 +18,8 @@ export interface SkillEntry {
   readonly whenToUse?: string
   /** False marks a user-only skill (`disable-model-invocation`): invocable here, absent from the model catalog. */
   readonly modelInvocable: boolean
+  /** True marks a sticky-mode skill (`mode: true` frontmatter): enterable via /mode. */
+  readonly mode: boolean
 }
 
 /**

@@ -202,6 +202,21 @@ export class PopupSelectController<TCtx = unknown> {
   }
 
   /**
+   * Autocomplete the highlighted row into the search text (Tab): replace the
+   * local filter with the highlighted option's label so the list narrows to
+   * it, keeping the shell open for further typing or Enter to select. A
+   * no-op unless options are ready and a row is highlighted.
+   */
+  complete(): void {
+    const s = this.state.getSnapshot()
+    if (!s.open || s.status !== 'ready' || s.submitting || s.confirming !== null) return
+    const rows = filterOptions(s.options, s.search)
+    const option = rows[s.active]
+    if (option === undefined || option.label === s.search) return
+    this.state.set({ ...s, search: option.label, active: 0 })
+  }
+
+  /**
    * Select one filtered row: single-flight — the first call enters
    * `submitting` and later calls no-op until it settles. Success consumes the
    * open-time token segment (a false CAS answer is benign), closes, and

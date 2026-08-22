@@ -124,6 +124,27 @@ describe('PopupSelectView', () => {
     expect(scrollIntoView.mock.instances.at(-1)).toBe(options[1])
   })
 
+  it('Tab autocompletes the highlighted row into the search and keeps the shell open', async () => {
+    const { search } = await mountOpen()
+    act(() => { fireEvent.change(search, { target: { value: 'li' } }) })
+    expect(rowLabels()).toEqual(['Light'])
+    // fireEvent returns false when preventDefault was called: Tab is intercepted.
+    expect(fireEvent.keyDown(search, { key: 'Tab' })).toBe(false)
+    expect(search.getAttribute('value')).toBe('Light')
+    expect(screen.getAllByRole('option')).toHaveLength(1)
+    // A second Tab is a no-op once the search already equals the label.
+    expect(fireEvent.keyDown(search, { key: 'Tab' })).toBe(false)
+    expect(search.getAttribute('value')).toBe('Light')
+  })
+
+  it('Tab is a no-op when no row is highlighted', async () => {
+    const { search } = await mountOpen()
+    act(() => { fireEvent.change(search, { target: { value: 'zzz' } }) })
+    expect(screen.queryByRole('option')).toBeNull()
+    expect(fireEvent.keyDown(search, { key: 'Tab' })).toBe(false)
+    expect(search.getAttribute('value')).toBe('zzz')
+  })
+
   it('caps the card height at the design maximum when the composer sits low enough', async () => {
     vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({ bottom: 800 } as DOMRect)
     await mountOpen()

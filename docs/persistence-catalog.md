@@ -667,6 +667,23 @@ Types: [SessionTitleLlmRequestEventData](subsystems/session-title.md)
 
 Source: [`packages/session/session-title-llm/src/index.ts:43`](../packages/session/session-title-llm/src/index.ts)
 
+### `skill/*`
+
+<a id="skillmode--log-only"></a>
+
+#### `skill/mode` — log-only
+
+```ts persistence-catalog
+/**
+ * Which skill mode is in force from this point on: log-only, non-surface,
+ * whole-value replace. The last `skill/mode` wins; a log with none folds
+ * to off through {@link foldSkillMode}.
+ */
+'skill/mode': SkillModeState
+```
+
+Source: [`packages/skill/skill-mode/src/index.ts:51`](../packages/skill/skill-mode/src/index.ts)
+
 ### `step/*`
 
 <a id="stepend--log-only"></a>

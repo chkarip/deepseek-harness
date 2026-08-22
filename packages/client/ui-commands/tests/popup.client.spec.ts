@@ -208,6 +208,38 @@ describe('search / move / highlight over the filtered list', () => {
     popup.highlight(1)
     expect(popup.state.getSnapshot().active).toBe(0)
   })
+
+  it('complete autocompletes the highlighted row into the search and rebases the highlight', async () => {
+    const { popup } = await readyPopup()
+    popup.setSearch('li')
+    popup.complete()
+    expect(popup.state.getSnapshot()).toMatchObject({ search: 'Light', active: 0 })
+    // Typing the same completed label is a no-op (the row already matches).
+    const before = popup.state.getSnapshot()
+    popup.complete()
+    expect(popup.state.getSnapshot()).toBe(before)
+  })
+
+  it('complete narrows to the highlighted row of a filtered list', async () => {
+    const { popup } = await readyPopup()
+    popup.setSearch('s') // Sepia (detail 'warm' does not match; label does)
+    popup.complete()
+    expect(popup.state.getSnapshot()).toMatchObject({ search: 'Sepia', active: 0 })
+  })
+
+  it('complete is a no-op while pending, closed, or when no row is highlighted', async () => {
+    const pending = new PopupSelectController<Ctx>(makeDeps())
+    pending.open('theme', spec({ options: () => new Promise(() => {}) }), CTX_A, SEGMENT)
+    pending.complete()
+    expect(pending.state.getSnapshot().search).toBe('')
+    const closed = new PopupSelectController<Ctx>(makeDeps())
+    closed.complete()
+    expect(closed.state.getSnapshot().search).toBe('')
+    const { popup } = await readyPopup()
+    popup.setSearch('nope')
+    popup.complete()
+    expect(popup.state.getSnapshot().search).toBe('nope')
+  })
 })
 
 describe('select', () => {

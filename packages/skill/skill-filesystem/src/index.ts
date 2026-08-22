@@ -107,6 +107,7 @@ interface ParsedSkill {
   name: string
   description: string
   whenToUse?: string
+  mode?: boolean
   invocation: SkillInvocationPolicy
   metadata?: Record<string, unknown>
   content: string
@@ -211,6 +212,7 @@ export class FileSystemSkillProvider implements SkillProvider {
       name: parsed.name,
       description: parsed.description,
       ...parsed.whenToUse !== undefined ? { whenToUse: parsed.whenToUse } : {},
+      ...parsed.mode !== undefined ? { mode: parsed.mode } : {},
       invocation: parsed.invocation,
       source: candidate.source,
       provider: this.name,
@@ -733,6 +735,7 @@ async function discoverRoot(root: SkillRoot, ctx: Context, provider: string): Pr
       name: parsed.name,
       description: parsed.description,
       ...parsed.whenToUse !== undefined ? { whenToUse: parsed.whenToUse } : {},
+      ...parsed.mode !== undefined ? { mode: parsed.mode } : {},
       invocation: parsed.invocation,
       provider,
       source: root.source,
@@ -828,10 +831,18 @@ async function parseSkillFile(path: string, ctx: Context, signal?: AbortSignal, 
     name,
     description,
     ...optionalString(parsed.data, 'whenToUse'),
+    ...parsedMode(parsed.data),
     invocation,
     ...optionalMetadata(parsed.data),
     content: parsed.body.trim(),
   }
+}
+
+/** Parse the top-level `mode` frontmatter flag; absent means not a mode skill. */
+function parsedMode(data: Record<string, unknown>): { mode?: boolean } {
+  if (!Object.hasOwn(data, 'mode')) return {}
+  const mode = frontmatterBoolean(data, 'mode')
+  return mode === undefined ? {} : { mode }
 }
 
 function optionalFileSystem(ctx: Context): FileSystem | undefined {

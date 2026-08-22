@@ -258,6 +258,9 @@
     - id: ui-skill
       name: '@deepseek-ai/dsh-client-ui-skill'
 
+    - id: ui-skill-mode
+      name: '@deepseek-ai/dsh-client-ui-skill-mode'
+
     - id: ui-subagent
       name: '@deepseek-ai/dsh-client-ui-subagent'
 
@@ -365,6 +368,11 @@
   disabled: true
 
 - id: tool-skill
+  disabled: true
+
+# The skill-mode plugin is per-agent state (which mode skill is active), so it
+# follows plan-mode behind presets rather than staying on the host plane.
+- id: skill-mode
   disabled: true
 
 # The goal SERVICE, its session driver, and the `/goal` command STAY on the

@@ -90,7 +90,10 @@ export class Entry {
     if (options.group) return false
     if (this.disabledOf(options)) return true
     let entry = this.parent.ctx.fiber.entry
+    const seen = new Set<Entry>()
     while (entry) {
+      if (seen.has(entry)) break
+      seen.add(entry)
       if (this.disabledOf(entry.options)) return true
       entry = entry.parent.ctx.fiber.entry
     }
@@ -247,8 +250,11 @@ export class Entry {
 
   getOuterStack = () => {
     let entry: Entry | undefined = this
+    const seen = new Set<Entry>()
     const result: string[] = []
     do {
+      if (seen.has(entry)) break
+      seen.add(entry)
       result.push(`    at ${entry.parent.tree.ctx.baseUrl}#${entry.options.id}`)
       entry = entry.parent.ctx.fiber.entry
     } while (entry)

@@ -1687,6 +1687,25 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'skillMode',
+    summary: '`ctx.skillMode`: owns logged mode state, applies and narrates selected state at step start, keeps the active mode\'s body present in every request through a warmed system prompt section, the `/mode` command, and the projection unit.',
+    description: '`ctx.skillMode`: owns logged mode state, applies and narrates selected state at step start, keeps the active mode\'s body present in every request through a warmed system prompt section, the `/mode` command, and the projection unit. UIs observe committed flips through `session/event`; there is no live mirror.',
+    methods: [
+      {
+        signature: 'get(agent: Agent): { name: string | null; pending?: string | null }',
+        description: 'Read the logged mode state and any selected state awaiting the next accepted in-turn pre-step.',
+        parameters: [{ name: 'agent', description: 'The agent to read.' }],
+        returns: 'Current logged state plus a pending selection, when present.',
+      },
+      {
+        signature: 'set(agent: Agent, name: string | null): \'committed\' | \'queued\' | \'cancelled\' | \'noop\'',
+        description: 'Select whether a skill mode should be active. Between turns the method appends the change immediately because no in-turn pre-step will run until another prompt starts a turn. The open-turn fold is the idle signal: agent status stays `running` through post-turn checkpointing, when no further in-turn pre-step runs. During an open turn the selection remains pending until the next accepted in-turn pre-step. Repeated selection of the current or already-pending state is a no-op.',
+        parameters: [{ name: 'agent', description: 'The agent to switch.' }, { name: 'name', description: 'The mode skill name to select, or null to leave the mode.' }],
+        returns: 'what happened: `committed` (logged now), `queued` (awaiting the next accepted in-turn pre-step), `cancelled` (an opposite pending selection was cleared; the logged state already matches), or `noop` (already in that state).',
+      },
+    ],
+  },
+  {
     key: 'skills',
     summary: 'Layered registry of skill providers, the host+per-scope shape the tools registry established.',
     description: 'Layered registry of skill providers, the host+per-scope shape the tools registry established. A registration files into the layer of its calling context\'s scope (scopeOf): host rows and repository plugins land in the global layer, while a plugin mounted by an agent preset\'s standing composition lands in that preset\'s layer. A read merges the global layer with the viewing scope\'s chain — the nearest layer\'s entry wins a duplicate name outright, and the rank order decides duplicates only within one layer. It exposes sorted invocation-neutral summaries and loads full skill bodies on demand.',
@@ -4444,7 +4463,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SkillSummary',
-    declaration: 'export interface SkillSummary {\n    readonly name: string;\n    readonly description: string;\n    readonly whenToUse?: string;\n    readonly invocation: SkillInvocationPolicy;\n    readonly source: SkillSource;\n    readonly provider: string;\n    readonly resourceBase?: SkillResourceBase;\n}',
+    declaration: 'export interface SkillSummary {\n    readonly name: string;\n    readonly description: string;\n    readonly whenToUse?: string;\n    readonly mode?: boolean;\n    readonly invocation: SkillInvocationPolicy;\n    readonly source: SkillSource;\n    readonly provider: string;\n    readonly resourceBase?: SkillResourceBase;\n}',
   },
   {
     name: 'SkillViewOptions',

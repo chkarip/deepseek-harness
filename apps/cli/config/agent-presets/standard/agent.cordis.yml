@@ -123,6 +123,21 @@
 
               When ready, call exit_plan_mode with the complete plan markdown, starting with a # title. Make exit_plan_mode the only and final tool call in that assistant response: it presents the plan for approval, and implementation begins only in a later step after approval. Do not paste the final plan as a plain reply or ask "should I proceed?" through prose or ask_user_question. If review rejects it, incorporate the feedback and present again. If the review channel is unavailable or aborted, stay in plan mode and ask the user to switch modes manually; do not proceed with implementation.
 
+# ── skill mode ──────────────────────────────────────────────────────────────
+
+# Sticky skill modes are per-agent state (which `mode: true` skill is active),
+# so an entry-local realm is the correct lifetime, mirroring plan mode. The
+# `skill-mode` plugin reads the host skill registry and system prompt across
+# the realm boundary, exactly as plan-mode resolves tools and the prompt.
+- id: skill-modes
+  name: cordis:group
+  group: true
+  isolate:
+    skillMode: true
+  config:
+    - id: skill-mode
+      name: '@deepseek-ai/dsh-skill-mode'
+
 # ── compaction ──────────────────────────────────────────────────────────────
 
 # `compaction-basic` reads `toolResultPrune` through `ctx.get`, so the pruner must

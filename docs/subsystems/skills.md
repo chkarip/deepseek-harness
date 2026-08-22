@@ -112,6 +112,8 @@ interface SkillSummary {
   readonly description: string
   /** Optional extra routing guidance. */
   readonly whenToUse?: string
+  /** Whether the skill declares itself a sticky session mode (`mode: true` frontmatter). */
+  readonly mode?: boolean
   /** Resolved model and user invocation controls. */
   readonly invocation: SkillInvocationPolicy
   /** Discovery source that produced this winning skill. */
@@ -241,6 +243,45 @@ The model-facing `skill({ name })` tool validates the kebab-case name, finds the
 ## Cordis API
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+
+<a id="ctxskillmode--skillmodecontroller"></a>
+
+### `ctx.skillMode` — `SkillModeController`
+
+`ctx.skillMode`: owns logged mode state, applies and narrates selected state at step start, keeps the active mode's body present in every request through a warmed system prompt section, the `/mode` command, and the projection unit. UIs observe committed flips through `session/event`; there is no live mirror.
+
+```ts cordis-catalog
+/**
+ * Read the logged mode state and any selected state awaiting the next
+ * accepted in-turn pre-step.
+ *
+ * @param agent The agent to read.
+ * @returns Current logged state plus a pending selection, when present.
+ */
+get(agent: Agent): { name: string | null; pending?: string | null }
+
+/**
+ * Select whether a skill mode should be active. Between turns the method
+ * appends the change immediately because no in-turn pre-step will run until
+ * another prompt starts a turn. The open-turn fold is the idle signal: agent
+ * status stays `running` through post-turn checkpointing, when no further
+ * in-turn pre-step runs. During an open turn the selection remains pending
+ * until the next accepted in-turn pre-step. Repeated selection of the current
+ * or already-pending state is a no-op.
+ *
+ * @param agent The agent to switch.
+ * @param name The mode skill name to select, or null to leave the mode.
+ * @returns what happened: `committed` (logged now), `queued` (awaiting the
+ * next accepted in-turn pre-step), `cancelled` (an opposite pending selection
+ * was cleared; the logged state already matches), or `noop` (already in that
+ * state).
+ */
+set(agent: Agent, name: string | null): 'committed' | 'queued' | 'cancelled' | 'noop'
+```
+
+Types: [Agent](core.md)
+
+Source: [`packages/skill/skill-mode/src/index.ts`](../../packages/skill/skill-mode/src/index.ts)
 
 <a id="ctxskills--skillregistry"></a>
 

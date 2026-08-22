@@ -60,6 +60,8 @@ export interface SkillSummary {
   readonly description: string
   /** Optional extra routing guidance. */
   readonly whenToUse?: string
+  /** Whether the skill declares itself a sticky session mode (`mode: true` frontmatter). */
+  readonly mode?: boolean
   /** Resolved model and user invocation controls. */
   readonly invocation: SkillInvocationPolicy
   /** Discovery source that produced this winning skill. */
@@ -694,6 +696,7 @@ function runtimeCandidate(skill: SkillDefinition): SkillCandidate {
     name: skill.name,
     description: skill.description,
     ...skill.whenToUse !== undefined ? { whenToUse: skill.whenToUse } : {},
+    ...skill.mode !== undefined ? { mode: skill.mode } : {},
     invocation: skill.invocation,
     source: skill.source,
     provider: skill.provider,
@@ -722,6 +725,9 @@ function validateCandidate(candidate: SkillCandidate, providerName: string): voi
   if (candidate.whenToUse !== undefined && typeof candidate.whenToUse !== 'string') {
     throw new TypeError(`skill provider "${providerName}" returned skill "${candidate.name}" with a non-string whenToUse`)
   }
+  if (candidate.mode !== undefined && typeof candidate.mode !== 'boolean') {
+    throw new TypeError(`skill provider "${providerName}" returned skill "${candidate.name}" with a non-boolean mode`)
+  }
   if (typeof candidate.source !== 'string') {
     throw new TypeError(`skill provider "${providerName}" returned skill "${candidate.name}" with a non-string source`)
   }
@@ -742,6 +748,7 @@ function validateCandidate(candidate: SkillCandidate, providerName: string): voi
 function validateRuntimeSkill(skill: SkillRegistration): void {
   if (!SKILL_NAME.test(skill.name)) throw new Error(`invalid skill name "${skill.name}"`)
   if (skill.description.length === 0) throw new Error(`skill "${skill.name}" requires a description`)
+  if (skill.mode !== undefined && typeof skill.mode !== 'boolean') throw new Error(`skill "${skill.name}" mode must be a boolean`)
   validateInvocation(skill.invocation, `runtime skill "${skill.name}"`)
 }
 
@@ -750,6 +757,7 @@ function validateDefinition(skill: SkillDefinition): void {
   const name = skill.name
   const description = skill.description
   const whenToUse = skill.whenToUse
+  const mode = skill.mode
   const invocation = skill.invocation
   const source = skill.source
   const provider = skill.provider
@@ -761,6 +769,7 @@ function validateDefinition(skill: SkillDefinition): void {
   if (description.length === 0) throw new Error(`loaded skill "${name}" requires a description`)
   validateInvocation(invocation, `loaded skill "${name}"`)
   if (whenToUse !== undefined && typeof whenToUse !== 'string') throw new TypeError(`loaded skill "${name}" whenToUse must be a string`)
+  if (mode !== undefined && typeof mode !== 'boolean') throw new TypeError(`loaded skill "${name}" mode must be a boolean`)
   if (typeof source !== 'string') throw new TypeError(`loaded skill "${name}" source must be a string`)
   if (typeof provider !== 'string') throw new TypeError(`loaded skill "${name}" provider must be a string`)
   if (typeof content !== 'string') throw new TypeError(`loaded skill "${name}" content must be a string`)
@@ -768,11 +777,12 @@ function validateDefinition(skill: SkillDefinition): void {
 }
 
 function toSummary(skill: SkillDefinition | SkillCandidate): SkillSummary {
-  const { name, description, whenToUse, invocation, source, provider, resourceBase } = skill
+  const { name, description, whenToUse, mode, invocation, source, provider, resourceBase } = skill
   return {
     name,
     description,
     ...whenToUse !== undefined ? { whenToUse } : {},
+    ...mode !== undefined ? { mode } : {},
     invocation,
     source,
     provider,

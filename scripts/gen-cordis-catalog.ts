@@ -95,6 +95,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   sessionHandoff: 'session.md',
   settings: 'settings.md',
   sessionTitle: 'session-title.md',
+  skillMode: 'skills.md',
   skills: 'skills.md',
   spillStore: 'spill.md',
   storage: 'storage.md',

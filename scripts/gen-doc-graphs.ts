@@ -311,6 +311,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Folds logged plan/mode state, flushes user selections at turn boundaries, renders deployment-owned guidance, registers /plan, and keeps the plan-exit schema stable across transitions.',
   },
   {
+    key: 'skillMode',
+    pkg: 'skill-mode',
+    title: 'Sticky skill mode state',
+    mode: 'core',
+    note: 'Folds logged skill/mode state, flushes user selections at turn boundaries, renders the active mode skill body as a system-prompt section, registers /mode, and drops a mode whose skill stops qualifying.',
+  },
+  {
     key: 'agentPresets',
     pkg: 'agent-presets',
     title: 'Per-session agent composition',
