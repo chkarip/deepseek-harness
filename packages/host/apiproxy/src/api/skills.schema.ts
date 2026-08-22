@@ -16,6 +16,7 @@ export const skillEntrySchema = z.object({
   whenToUse: z.string().optional(),
   modelInvocable: z.boolean(),
   mode: z.boolean(),
+  modeSkills: z.array(z.string().min(1)),
 }) satisfies z.ZodType<Wire<SkillEntry>>
 
 /** skill.list request payload. */

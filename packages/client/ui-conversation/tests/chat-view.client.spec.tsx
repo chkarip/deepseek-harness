@@ -873,6 +873,8 @@ describe('ChatView', () => {
   it('hands running calls to a live Tool group', () => {
     const h = makeHarness({ runningCalls: [runningCall('r1')], running: true })
     const view = render(<h.ChatView {...h.props} />)
+    // The work group is compact by default; expand it to mount the running call.
+    fireEvent.click(view.container.querySelector('[data-disclosure-row]') as Element)
     expect(view.getByTestId('tool-seat-r1')).toBeTruthy()
     expect(h.toolOwners[0]?.block).toMatchObject({ callId: 'r1', argsRaw: '{"command":"cmd-r1"}' })
     expect(view.getByRole('status').textContent).toBe('Deep diving...')
@@ -906,6 +908,8 @@ describe('ChatView', () => {
         : opts?.fallback ?? null
     }) as ChatViewSlotProps['renderSlot']
     const view = render(<h.ChatView {...h.props} />)
+    // Expand the compact-by-default work group so the running call mounts.
+    fireEvent.click(view.container.querySelector('[data-disclosure-row]') as Element)
     const tool = view.getByTestId('stateful-tool')
     const row = view.container.querySelector('[data-chat-flow-key="fixture:tool:r1"]')
     expect(tool.dataset.state).toBe('running')

@@ -17,9 +17,10 @@ import { apply, inject } from '../src/client/index.ts'
 const sid = (k: string): SessionId => k as SessionId
 
 const SKILLS: SkillEntry[] = [
-  { name: 'unslop', description: 'Cut AI tells from any writing.', modelInvocable: true, mode: true },
-  { name: 'plain', description: 'An ordinary skill.', modelInvocable: true, mode: false },
-  { name: 'tdd', description: 'Test-driven development.', modelInvocable: true, mode: true },
+  { name: 'unslop', description: 'Cut AI tells from any writing.', modelInvocable: true, mode: true, modeSkills: [] },
+  { name: 'plain', description: 'An ordinary skill.', modelInvocable: true, mode: false, modeSkills: [] },
+  { name: 'tdd', description: 'Test-driven development.', modelInvocable: true, mode: true, modeSkills: [] },
+  { name: 'poteto', description: 'Playbook router.', modelInvocable: true, mode: true, modeSkills: ['unslop'] },
 ]
 
 /** Boot the plugin over fake faces + a stateful fake host (mode list + execute log). */
@@ -53,9 +54,15 @@ async function mount() {
   localeRuntime.setLocale('en')
   ctx.provide('locale', localeRuntime)
   const scopes = new Map<SessionId, Context>()
+  // The active mark reads the session's skill-mode projection; `active` is the
+  // mode this fake host reports for every bound session.
+  const active: { name: string | null } = { name: null }
   ctx.provide('sessions', {
     scope: (id: SessionId) => scopes.get(id),
     subagentAddress: () => undefined,
+    binding: (id: SessionId) => scopes.has(id)
+      ? { session: { projections: { faceOf: () => ({ getSnapshot: () => ({ name: active.name, pending: false }) }) } } }
+      : undefined,
   })
   const fiber = ctx.plugin({ inject: [...inject], apply })
   await fiber.await()
@@ -66,7 +73,7 @@ async function mount() {
     return handle
   }
   return {
-    ctx, fiber, mint, calls, executed,
+    ctx, fiber, mint, calls, executed, active,
     decoration: () => decoration!,
   }
 }
@@ -85,11 +92,33 @@ describe('ui-skill-mode browser half', () => {
       new AbortController().signal,
     )
     expect(bench.calls.list).toBe(1)
-    expect(options.map((option: SelectOption) => option.id)).toEqual(['unslop', 'tdd'])
+    expect(options.map((option: SelectOption) => option.id)).toEqual(['unslop', 'tdd', 'poteto'])
     expect(options.map((option: SelectOption) => option.detail)).toEqual([
       'Cut AI tells from any writing.',
       'Test-driven development.',
+      'Playbook router. · carries: unslop',
     ])
+  })
+
+  it('marks the session\'s active mode and leaves the rest unmarked', async () => {
+    const bench = await mount()
+    bench.mint('s1')
+    bench.active.name = 'poteto'
+    const options = await bench.decoration().ui.options(
+      { sessionId: sid('s1') },
+      new AbortController().signal,
+    )
+    expect(options.filter((option: SelectOption) => option.active === true).map(option => option.id)).toEqual(['poteto'])
+  })
+
+  it('marks nothing when no mode is active', async () => {
+    const bench = await mount()
+    bench.mint('s1')
+    const options = await bench.decoration().ui.options(
+      { sessionId: sid('s1') },
+      new AbortController().signal,
+    )
+    expect(options.every((option: SelectOption) => option.active === undefined)).toBe(true)
   })
 
   it('executes /mode <name> on select through the command channel', async () => {
@@ -129,6 +158,7 @@ describe('ui-skill-mode browser half', () => {
     ctx.provide('sessions', {
       scope: () => undefined,
       subagentAddress: () => undefined,
+      binding: () => undefined,
     })
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()

@@ -21,7 +21,7 @@ describe('panels store', () => {
     expect(instance.getSnapshot()).toEqual({ layout: 'tiled', activePanelId: undefined, panels: [] })
     instance.actions.addPanel('p1', 'review', sid(1))
     const state = instance.getSnapshot()
-    expect(state.panels).toEqual([{ id: 'p1', name: 'review', sessionId: sid(1), summary: undefined, summaryState: 'idle' }])
+    expect(state.panels).toEqual([{ id: 'p1', name: 'review', sessionId: sid(1), summary: undefined, summaryState: 'idle', recapGoal: undefined, recapResult: undefined }])
     expect(state.activePanelId).toBe('p1')
   })
 

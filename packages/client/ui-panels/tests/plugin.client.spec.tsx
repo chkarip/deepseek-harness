@@ -55,4 +55,34 @@ describe('ui-panels browser plugin', () => {
 
     disposeFrame()
   })
+
+  it('registers the sidebar add-in-panel action once the session-actions slot is declared', async () => {
+    const { ctx, fiber } = await bench()
+
+    // The sidebar browser declares the hole only after applying; the plugin's
+    // slots.inject waits for it (same pattern as the 'panels' seat). The
+    // declaration chain mirrors the real shell: root → sidebar →
+    // sidebar.workspaces → sidebar.workspaces.session-actions.
+    const disposeRoot = ctx.slots.register({
+      name: 'root',
+      children: { 'sidebar': { kind: 'single', scope: 'root' } },
+    } as never, () => null)
+    const disposeSidebar = ctx.slots.register({
+      name: 'sidebar',
+      children: { 'sidebar.workspaces': { kind: 'single', scope: 'root' } },
+    } as never, () => null)
+    const dispose = ctx.slots.register({
+      name: 'sidebar.workspaces',
+      children: { 'sidebar.workspaces.session-actions': { kind: 'list', scope: 'root' } },
+    } as never, () => null)
+
+    expect(ctx.slots.entries('sidebar.workspaces.session-actions')).toHaveLength(1)
+
+    await fiber.dispose()
+    expect(ctx.slots.entries('sidebar.workspaces.session-actions')).toHaveLength(0)
+
+    dispose()
+    disposeSidebar()
+    disposeRoot()
+  })
 })

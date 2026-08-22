@@ -1,0 +1,82 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--dsh-text-secondary, #9999aa);
+}
+
+.badgePeak,
+.badgeOff {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.badgePeak {
+  color: #ffd479;
+  background-color: rgba(255, 212, 121, 0.12);
+  border: 1px solid rgba(255, 212, 121, 0.3);
+}
+
+.badgeOff {
+  color: #7ee2a8;
+  background-color: rgba(126, 226, 168, 0.12);
+  border: 1px solid rgba(126, 226, 168, 0.3);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modelRow {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background-color: var(--dsh-bg-card, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--dsh-border-subtle, #33333f);
+}
+
+.modelName {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--dsh-text-primary, #ffffff);
+}
+
+.tierRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tierLabel {
+  font-size: 0.72rem;
+  color: var(--dsh-text-secondary, #9999aa);
+}
+
+.tierValues {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--dsh-text-primary, #ffffff);
+}

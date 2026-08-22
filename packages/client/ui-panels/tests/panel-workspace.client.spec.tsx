@@ -8,7 +8,7 @@
 import { useSyncExternalStore } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
-import type { SessionId, SessionSummary, SessionListState, WorkspaceListState } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionId, SessionSummary, SessionListState, WorkspaceId, WorkspaceListState, WorkspaceView } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ForkOptions, ForkResult } from '../src/client/contract.ts'
 import { zh } from '../src/client/locales.ts'
 import { createPanelsStore, type PanelsState } from '../src/client/panels-store.ts'
@@ -61,20 +61,32 @@ afterEach(() => {
 function WorkspaceHarness({
   store,
   sessions,
+  workspaces = defaultWorkspaces,
   renderConv = vi.fn((sessionId?: SessionId) => <div data-testid={`conv-${sessionId}`}>{sessionId ?? 'fallback'}</div>),
   forkSession = vi.fn().mockResolvedValue({ sessionId: sid('forked-1'), panelName: 'Forked' }),
   openSession = vi.fn(),
   createSession = vi.fn(),
+  createWorkspace = vi.fn(),
+  connectWorkspace = vi.fn(),
+  pickDirectory = vi.fn(),
   summarize = vi.fn(),
+  extractRecap = vi.fn(),
+  getTurnCount = vi.fn(),
   openWindow = vi.fn(),
 }: {
   store: ReturnType<ReturnType<typeof createPanelsStore>['create']>
   sessions: SessionListState
+  workspaces?: WorkspaceListState
   renderConv?: (sessionId?: SessionId) => React.ReactNode
   forkSession?: (opts: SessionId | ForkOptions) => Promise<ForkResult>
   openSession?: (sessionId: SessionId) => void
-  createSession?: () => Promise<SessionId>
+  createSession?: (workspaceId?: WorkspaceId) => Promise<SessionId>
+  createWorkspace?: (input: { path: string }) => Promise<WorkspaceView>
+  connectWorkspace?: (workspaceId: WorkspaceId) => Promise<SessionId>
+  pickDirectory?: () => Promise<string | null>
   summarize?: (panelId: string, sessionId: SessionId) => Promise<void>
+  extractRecap?: (sessionId: SessionId) => { goal: string; result: string } | undefined
+  getTurnCount?: (sessionId: SessionId) => number | undefined
   openWindow?: (sessionId: SessionId) => void
 }) {
   const state = useSyncExternalStore(listener => store.subscribe(listener), () => store.getSnapshot())
@@ -85,9 +97,14 @@ function WorkspaceHarness({
       useStore={useStore}
       actions={store.actions}
       useSessions={sel => sel(sessions)}
-      useWorkspaces={sel => sel(defaultWorkspaces)}
+      useWorkspaces={sel => sel(workspaces)}
       summarize={summarize}
+      extractRecap={extractRecap}
+      getTurnCount={getTurnCount}
       createSession={createSession}
+      createWorkspace={createWorkspace}
+      connectWorkspace={connectWorkspace}
+      pickDirectory={pickDirectory}
       forkSession={forkSession}
       openSession={openSession}
       openWindow={openWindow}
@@ -240,5 +257,64 @@ describe('PanelWorkspace', () => {
     expect(forkSession).not.toHaveBeenCalled()
     expect(store.getSnapshot().panels.find(p => p.id === 'p2')?.sessionId).toBe(sid(2))
     expect(openSession).toHaveBeenCalledWith(sid(2))
+  })
+
+  it('hides archived sessions from the session picker', () => {
+    const store = createPanelsStore().create()
+    store.actions.addPanel('p1', 'Panel 1')
+
+    const view = render(
+      <WorkspaceHarness
+        store={store}
+        sessions={makeSessionList(sid(1), [
+          row(sid(1), 'Kept'),
+          row(sid(2), 'Archived'),
+        ])}
+        workspaces={{ ...defaultWorkspaces, archivedSessionIds: [sid(2)] }}
+      />,
+    )
+
+    // Open the picker from the panel's session chip: the archived session
+    // must not be offered, while live sessions remain listable.
+    const p1Element = view.container.querySelector('section[data-panel-id="p1"]')!
+    const sessionChip = p1Element.querySelector('button[class*="sessionChip"]')!
+    fireEvent.click(sessionChip)
+
+    expect(view.queryByRole('menuitem', { name: /Archived/ })).toBeNull()
+    expect(view.getByRole('menuitem', { name: /Kept/ })).toBeTruthy()
+  })
+
+  it('recaps once per turn and does not loop on its own recap turn', async () => {
+    vi.useFakeTimers()
+    try {
+      const store = createPanelsStore().create()
+      store.actions.addPanel('p1', 'Panel 1')
+      store.actions.setPanelSession('p1', sid(1))
+
+      const sessions = makeSessionList(sid(1), [row(sid(1), 'Session 1')])
+
+      const getTurnCount = vi.fn((_: SessionId) => 1)
+      const extractRecap = vi.fn().mockReturnValue({ goal: 'Do X', result: 'Did X' })
+
+      render(
+        <WorkspaceHarness
+          store={store}
+          sessions={sessions}
+          extractRecap={extractRecap}
+          getTurnCount={getTurnCount}
+        />,
+      )
+
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(extractRecap).toHaveBeenCalledTimes(1)
+
+      // The turn fingerprint was recorded, so further idle time must NOT
+      // extract the recap again.
+      await vi.advanceTimersByTimeAsync(60_000)
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(extractRecap).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

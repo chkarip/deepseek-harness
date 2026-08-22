@@ -33,6 +33,12 @@ export type { SessionSurface, SurfaceFoldReplacement, SurfaceFoldResult } from '
 export { deriveEventMessage, foldSurface, isAppendSurfaceEvent, isReplacementSurfaceEvent, isSurfaceEvent, isSurfaceEligibleType } from './surface.ts'
 export { canonicalHeader, foldRequestHeader, headerEquals } from './request-header.ts'
 export { KNOWN_SESSION_EVENT_TYPES } from './known-event-types.ts'
+export {
+  forkOwnStart, lastTurnOf, planForkMerge,
+} from './merge.ts'
+export type {
+  ForkMergePlan, ForkMergeRejection, MergeEvent, MergeParentState,
+} from './merge.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -584,6 +590,9 @@ export class Session {
    *   history) and
    *   rejected by the compiler for non-surface types like `turn/start` or
    *   `assistant/chunk`.
+   * @param time - Optional event timestamp override (epoch ms). Absent stamps
+   *   `Date.now()`. Used by fork merging to preserve a replayed event's
+   *   original chronology; must be a non-negative finite number.
    * @returns the logged event — its assigned `seq`/`time` plus the SNAPSHOT of
    *   `data` that entered the log, so reading `event.data` back sees the logged
    *   value, never the caller's still-mutable input.
@@ -604,9 +613,19 @@ export class Session {
   append<T extends SessionEventType>(
     type: T,
     data: SessionEventMap[T],
-    ...opts: T extends SurfaceEventType ? [opts: SurfaceIntent] : []
+    ...opts: T extends SurfaceEventType
+      ? [opts: SurfaceIntent, time?: number] | [time?: number]
+      : [time?: number]
   ): SessionEvent<T> {
-    const surfaceOpts: SurfaceIntent | undefined = opts[0]
+    const first = opts[0]
+    const surfaceOpts: SurfaceIntent | undefined = typeof first === 'object' && first !== null
+      ? first as SurfaceIntent
+      : undefined
+    const eventTime = typeof first === 'number' ? first : opts[1]
+    if (eventTime !== undefined
+      && (!Number.isFinite(eventTime) || eventTime < 0)) {
+      throw new Error(`session event "${type}" carries an invalid time override ${String(eventTime)}`)
+    }
     const surfaceMetadata = {
       ...surfaceOpts?.sourceEventSeqs === undefined ? {} : { sourceEventSeqs: surfaceOpts.sourceEventSeqs },
       ...surfaceOpts?.surfaceOp === undefined ? {} : { surfaceOp: surfaceOpts.surfaceOp },
@@ -627,7 +646,7 @@ export class Session {
     const event = deepFreeze({
       type,
       seq: this.log.length,
-      time: Date.now(),
+      time: eventTime ?? Date.now(),
       data: dataSnapshot,
       ...(surfaceMetadataSnapshot as { surfaceOp?: unknown; sourceEventSeqs?: unknown }),
     } as unknown as SessionEvent<T>)

@@ -20,6 +20,8 @@ export interface SkillEntry {
   readonly modelInvocable: boolean
   /** True marks a sticky-mode skill (`mode: true` frontmatter): enterable via /mode. */
   readonly mode: boolean
+  /** Member skills a mode skill carries (`skills:` frontmatter); empty on every other row. */
+  readonly modeSkills: readonly string[]
 }
 
 /**

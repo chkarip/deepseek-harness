@@ -138,6 +138,29 @@ export const sessionForkValueSchema = z.object({
   sessionId: sessionIdSchema,
 }) satisfies z.ZodType<Wire<ResponseValue<'session.fork'>>>
 
+/** session.mergeForks request payload (the session whose forks merge into it). */
+export const sessionMergeForksRequestSchema = z.object({
+  sessionId: sessionIdSchema,
+}) satisfies z.ZodType<Wire<RequestPayload<'session.mergeForks'>>>
+
+/** One merged fork row of session.mergeForks. */
+export const sessionForkMergeResultSchema = z.object({
+  forkSessionId: sessionIdSchema,
+  appendedEvents: z.number().int().nonnegative(),
+})
+
+/** One unmerged fork row of session.mergeForks. */
+export const sessionForkMergeFailureSchema = z.object({
+  forkSessionId: sessionIdSchema,
+  reason: z.string().min(1),
+})
+
+/** session.mergeForks response value (merged rows plus any unmergeable forks). */
+export const sessionMergeForksValueSchema = z.object({
+  merged: z.array(sessionForkMergeResultSchema),
+  failed: z.array(sessionForkMergeFailureSchema),
+}) satisfies z.ZodType<Wire<ResponseValue<'session.mergeForks'>>>
+
 /** session.history request payload (beforeSeq/maxMessages page backwards from the window tail). */
 export const sessionHistoryRequestSchema = z.object({
   sessionId: sessionIdSchema,

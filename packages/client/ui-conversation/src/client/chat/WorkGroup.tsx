@@ -3,10 +3,10 @@
 // by the Chat snapshot builder; this component owns only disclosure state and
 // the collapsed activity line.
 //
-// Disclosure policy: the box follows its turn — open while the turn runs so
-// the reader watches the work stream, collapsed once the turn closes and the
-// answer stands on its own. A reader toggle overrides that for the rest of the
-// session view; the override outlives the turn it was made in.
+// Disclosure policy: the box is compact by default — collapsed to its "N
+// steps" activity line regardless of turn state — so a turn's intermediate
+// work stays scannable. A reader toggle expands it to watch the full work
+// stream; the override outlives the turn it was made in.
 //
 // Members mount only while open: a collapsed group is one row, so long
 // histories pay for the summary alone.
@@ -65,7 +65,7 @@ export const WorkGroup = memo(function WorkGroup({
   group, running, useSession, renderSlot, t, ...owner
 }: WorkGroupProps) {
   const [override, setOverride] = useState<boolean | null>(null)
-  const open = override ?? running
+  const open = override ?? false
   const last = group.keys[group.keys.length - 1]
   return (
     <div

@@ -108,6 +108,7 @@ interface ParsedSkill {
   description: string
   whenToUse?: string
   mode?: boolean
+  modeSkills?: string[]
   invocation: SkillInvocationPolicy
   metadata?: Record<string, unknown>
   content: string
@@ -213,6 +214,7 @@ export class FileSystemSkillProvider implements SkillProvider {
       description: parsed.description,
       ...parsed.whenToUse !== undefined ? { whenToUse: parsed.whenToUse } : {},
       ...parsed.mode !== undefined ? { mode: parsed.mode } : {},
+      ...parsed.modeSkills !== undefined ? { modeSkills: parsed.modeSkills } : {},
       invocation: parsed.invocation,
       source: candidate.source,
       provider: this.name,
@@ -736,6 +738,7 @@ async function discoverRoot(root: SkillRoot, ctx: Context, provider: string): Pr
       description: parsed.description,
       ...parsed.whenToUse !== undefined ? { whenToUse: parsed.whenToUse } : {},
       ...parsed.mode !== undefined ? { mode: parsed.mode } : {},
+      ...parsed.modeSkills !== undefined ? { modeSkills: parsed.modeSkills } : {},
       invocation: parsed.invocation,
       provider,
       source: root.source,
@@ -827,22 +830,60 @@ async function parseSkillFile(path: string, ctx: Context, signal?: AbortSignal, 
     ctx.logger.warn(`skill file ${path} ignored: invalid invocation frontmatter: ${errorMessage(error)}`)
     return undefined
   }
+  let modeFields
+  try {
+    modeFields = parsedModeFields(parsed.data)
+  } catch (error) {
+    ctx.logger.warn(`skill file ${path} ignored: invalid mode frontmatter: ${errorMessage(error)}`)
+    return undefined
+  }
   return {
     name,
     description,
     ...optionalString(parsed.data, 'whenToUse'),
-    ...parsedMode(parsed.data),
+    ...modeFields,
     invocation,
     ...optionalMetadata(parsed.data),
     content: parsed.body.trim(),
   }
 }
 
-/** Parse the top-level `mode` frontmatter flag; absent means not a mode skill. */
-function parsedMode(data: Record<string, unknown>): { mode?: boolean } {
-  if (!Object.hasOwn(data, 'mode')) return {}
-  const mode = frontmatterBoolean(data, 'mode')
-  return mode === undefined ? {} : { mode }
+/**
+ * Parse the mode frontmatter pair: the `mode` flag and the `skills` membership
+ * list a mode skill carries. Both are rejected together by the one caller, so a
+ * malformed value of either ignores the file with a named warning.
+ * @param data - parsed frontmatter object.
+ * @returns the fields present in this frontmatter; absent `mode` means not a mode skill.
+ * @throws TypeError when `mode` is not boolean-like, when `skills` is not an
+ *   array of valid skill names, or when `skills` appears without `mode: true`.
+ */
+function parsedModeFields(data: Record<string, unknown>): { mode?: boolean; modeSkills?: string[] } {
+  const mode = Object.hasOwn(data, 'mode') ? frontmatterBoolean(data, 'mode') : undefined
+  const modeSkills = parsedModeSkills(data)
+  if (modeSkills !== undefined && mode !== true) {
+    throw new TypeError('frontmatter field "skills" requires "mode: true"')
+  }
+  return {
+    ...mode === undefined ? {} : { mode },
+    ...modeSkills === undefined ? {} : { modeSkills },
+  }
+}
+
+/**
+ * Parse the `skills` membership list of a mode skill.
+ * @param data - parsed frontmatter object.
+ * @returns the declared member names, or undefined when the field is absent.
+ * @throws TypeError when the value is not an array of valid kebab-case skill names.
+ */
+function parsedModeSkills(data: Record<string, unknown>): string[] | undefined {
+  if (!Object.hasOwn(data, 'skills')) return undefined
+  const value = data.skills
+  if (!Array.isArray(value)) throw new TypeError('frontmatter field "skills" must be a list of skill names')
+  return value.map((entry) => {
+    if (typeof entry !== 'string') throw new TypeError('frontmatter field "skills" must contain only skill names')
+    if (!isSkillName(entry)) throw new TypeError(`frontmatter field "skills" contains an invalid skill name "${entry}"`)
+    return entry
+  })
 }
 
 function optionalFileSystem(ctx: Context): FileSystem | undefined {

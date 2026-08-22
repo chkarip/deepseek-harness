@@ -9,14 +9,14 @@
  * menu in between; the flow and its error dialog live in WorkspacePicker
  * (same package — direct composition, no slot between them).
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import {
   Button, IconCloseFill14, IconPersonalizationOutline16,
   IconProjectAddOutline16, IconSearchOutline16, Menu, Modal, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
-  SessionId, SessionListState, SessionSearchResultItem, WorkspaceId, WorkspaceView,
+  ForkMergeFailure, SessionId, SessionListState, SessionSearchResultItem, WorkspaceId, WorkspaceView,
 } from '@deepseek-ai/dsh-client-runtime/client'
 import type { WorkspaceBrowserProps } from './contract/slots.ts'
 import type { SessionNode, SessionOrderBy } from './tree.ts'
@@ -243,6 +243,10 @@ type SessionTreeProps = Pick<
   onSessionRename: (sessionId: SessionNode['id'], currentTitle: string) => void
   /** Archive a session (row menu action; the row disappears on the state echo). */
   onSessionArchive: (sessionId: SessionNode['id']) => void
+  /** Open the browser-owned merge-forks confirmation dialog. */
+  onMergeRequest: (sessionId: SessionNode['id'], forkCount: number) => void
+  /** Slot-rendered extra rows for a session's ⋯ menu (the row supplies its close). */
+  renderSessionActions: (sessionId: SessionNode['id'], onClose: () => void) => ReactNode
   /** Session order behavior: fixed after edits, or additionally promoted by user activity. */
   orderBy: SessionOrderBy
 }
@@ -250,7 +254,8 @@ type SessionTreeProps = Pick<
 /** The scrolling session tree; unmounting drops the sessions subscription and expand-all state. */
 function SessionTree({
   useSessions, startSession, open, forkSession, workspaces, archivedSessionIds,
-  onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive,
+  onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive, onMergeRequest,
+  renderSessionActions,
   insertWorkspaceBefore, insertSessionBefore, orderBy,
   groupExpansion, setGroupExpanded,
   sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, home, t,
@@ -282,6 +287,17 @@ function SessionTree({
     const accounted = new Set(workspaces.flatMap(workspace => workspace.sessionIds))
     return list.ids.filter(id => list.byId[id] !== undefined && !accounted.has(id))
   }, [list, workspaces])
+  // Direct fork count per session (rows with forks show the Merge forks menu
+  // row). Derived from the list's parentSessionId lineage, so the action
+  // disappears as soon as the merged forks leave the list.
+  const forkCountBySession = useMemo(() => {
+    const counts = new Map<SessionNode['id'], number>()
+    for (const id of list.ids) {
+      const parentId = list.byId[id]?.parentId
+      if (parentId !== undefined) counts.set(parentId, (counts.get(parentId) ?? 0) + 1)
+    }
+    return counts
+  }, [list])
   useEffect(() => {
     if (list.phase !== 'ready') return
     const switchedToUpdated = previousOrderBy.current !== 'updated' && orderBy === 'updated'
@@ -519,6 +535,9 @@ function SessionTree({
                     onRename={onSessionRename}
                     onFork={forkSession}
                     onArchive={onSessionArchive}
+                    onMerge={onMergeRequest}
+                    forkCount={forkCountBySession.get(node.id) ?? 0}
+                    renderSessionActions={onClose => renderSessionActions(node.id, onClose)}
                     drag={dragProps}
                     t={t}
                   />
@@ -547,7 +566,8 @@ function SessionTree({
 
 /** The flat "In one list" body: every session is one draggable top-level row. */
 function FlatList({
-  useSessions, open, forkSession, onSessionRename, onSessionArchive, archivedSessionIds,
+  useSessions, open, forkSession, onSessionRename, onSessionArchive, onMergeRequest,
+  renderSessionActions, archivedSessionIds,
   orderBy, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, t,
 }: Pick<
   SessionTreeProps,
@@ -556,6 +576,8 @@ function FlatList({
   | 'forkSession'
   | 'onSessionRename'
   | 'onSessionArchive'
+  | 'onMergeRequest'
+  | 'renderSessionActions'
   | 'archivedSessionIds'
   | 'orderBy'
   | 'sessionOrderByAccount'
@@ -565,6 +587,15 @@ function FlatList({
   | 't'
 >) {
   const list = useSessions(s => s)
+  // Direct fork count per session (see SessionTree).
+  const forkCountBySession = useMemo(() => {
+    const counts = new Map<SessionNode['id'], number>()
+    for (const id of list.ids) {
+      const parentId = list.byId[id]?.parentId
+      if (parentId !== undefined) counts.set(parentId, (counts.get(parentId) ?? 0) + 1)
+    }
+    return counts
+  }, [list])
   const baseRows = useMemo(
     () => deriveFlat(list, archivedSessionIds),
     [list, archivedSessionIds],
@@ -635,6 +666,9 @@ function FlatList({
               onRename={onSessionRename}
               onFork={forkSession}
               onArchive={onSessionArchive}
+              onMerge={onMergeRequest}
+              forkCount={forkCountBySession.get(node.id) ?? 0}
+              renderSessionActions={onClose => renderSessionActions(node.id, onClose)}
               flat
               drag={{
                 start: () => {
@@ -752,6 +786,7 @@ export function WorkspaceBrowser({
   open,
   renameSession,
   forkSession,
+  mergeForks,
   renameWorkspace,
   deleteWorkspace,
   insertWorkspaceBefore,
@@ -972,6 +1007,41 @@ export function WorkspaceBrowser({
     })
   }
 
+  // The slot-driven extra rows for one session's ⋯ menu (ui-panels' "Add in
+  // panel"); the row supplies its own close callback, which dismisses the
+  // row's menu after the occupant acts.
+  const renderSessionActions = (sessionId: SessionNode['id'], onClose: () => void): ReactNode =>
+    renderSlot('sidebar.workspaces.session-actions', { sessionId, onClose })
+
+  // Merge-forks confirmation dialog (browser-owned, same pattern as the
+  // workspace delete dialog): destructive, so a confirmation names the count.
+  const [mergeTarget, setMergeTarget] = useState<{ sessionId: SessionNode['id']; forkCount: number } | null>(null)
+  const [merging, setMerging] = useState(false)
+  const [mergeError, setMergeError] = useState<string | null>(null)
+  const [mergeFailedForks, setMergeFailedForks] = useState<readonly ForkMergeFailure[]>([])
+  const closeMerge = () => {
+    if (merging) return
+    setMergeTarget(null)
+    setMergeError(null)
+    setMergeFailedForks([])
+  }
+  const confirmMerge = () => {
+    if (merging || mergeTarget === null) return
+    setMerging(true)
+    setMergeError(null)
+    setMergeFailedForks([])
+    mergeForks(mergeTarget.sessionId).then((outcome) => {
+      setMerging(false)
+      setMergeFailedForks(outcome.failed)
+      // The merged forks vanish from the list through the runtime's mutation;
+      // the dialog closes unless some forks could not be merged.
+      if (outcome.failed.length === 0) setMergeTarget(null)
+    }).catch((reason: unknown) => {
+      setMerging(false)
+      setMergeError(reason instanceof Error ? reason.message : String(reason))
+    })
+  }
+
   // Delete dialog is separate from the row so a successful removal can
   // unmount that row without tearing down the in-flight confirmation state.
   const [deleteTarget, setDeleteTarget] = useState<{ workspaceId: WorkspaceId; title: string } | null>(null)
@@ -1159,6 +1229,12 @@ export function WorkspaceBrowser({
               <FlatList
                 useSessions={useSessions} open={open} forkSession={forkSession}
                 onSessionRename={onSessionRename} onSessionArchive={onSessionArchive}
+                onMergeRequest={(sessionId, forkCount) => {
+                  setMergeTarget({ sessionId, forkCount })
+                  setMergeError(null)
+                  setMergeFailedForks([])
+                }}
+                renderSessionActions={renderSessionActions}
                 archivedSessionIds={archivedSessionIds}
                 orderBy={orderBy}
                 sessionOrderByAccount={sessionOrderByAccount}
@@ -1189,6 +1265,12 @@ export function WorkspaceBrowser({
                 orderBy={orderBy}
                 home={home}
                 t={t}
+                onMergeRequest={(sessionId, forkCount) => {
+                  setMergeTarget({ sessionId, forkCount })
+                  setMergeError(null)
+                  setMergeFailedForks([])
+                }}
+                renderSessionActions={renderSessionActions}
                 onRenameRequest={(workspaceId, currentTitle) => {
                   setRenameTarget({ workspaceId, currentTitle })
                   setRenameDraft(currentTitle)
@@ -1292,6 +1374,41 @@ export function WorkspaceBrowser({
       >
         {deleting && <div className={css.deleteStatus} role="status">{t('delete.pending')}</div>}
         {deleteError !== null && <div className={css.renameError} role="alert">{deleteError}</div>}
+      </Modal>
+      <Modal
+        open={mergeTarget !== null}
+        onClose={closeMerge}
+        closeLabel={t('close')}
+        title={t('merge.title')}
+        {...mergeTarget === null
+          ? {}
+          : { description: t('merge.desc', { n: mergeTarget.forkCount }) }}
+        footer={(
+          <>
+            <Button variant="outline" disabled={merging} onClick={closeMerge}>{t('cancel')}</Button>
+            <Button
+              variant="outline"
+              className={css.deleteAction}
+              disabled={merging}
+              onClick={confirmMerge}
+            >
+              {t('merge.confirm')}
+            </Button>
+          </>
+        )}
+      >
+        {merging && <div className={css.deleteStatus} role="status">{t('merge.pending')}</div>}
+        {mergeError !== null && <div className={css.renameError} role="alert">{mergeError}</div>}
+        {mergeFailedForks.length > 0 && (
+          <div className={css.renameError} role="alert">
+            {t('merge.partial', { n: mergeFailedForks.length })}
+            <ul>
+              {mergeFailedForks.map(failure => (
+                <li key={failure.forkSessionId}>{failure.reason}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </Modal>
     </div>
   )

@@ -228,6 +228,17 @@ export abstract class SessionPersistence extends Service {
   abstract list(signal?: AbortSignal): Promise<SessionHeader[]>
 
   /**
+   * Permanently delete a session's durable log and metadata. Refuses while a
+   * live Session owns the id (the coordinator guards this); an id that was
+   * created but never materialized resolves without a backend write. Used by
+   * fork merging, which removes a merged child after its own work has been
+   * replayed into the parent.
+   * @param id - the persisted session id to remove.
+   * @param signal - optional cancellation for the removal work.
+   */
+  abstract delete(id: SessionId, signal?: AbortSignal): Promise<void>
+
+  /**
    * List materialized sessions with cheap per-log change tokens.
    *
    * Repeated observations of an unchanged log return the same revision. A

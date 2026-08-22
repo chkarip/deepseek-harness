@@ -15,6 +15,8 @@ import { playRetroSound } from './audio/retro-synth.ts'
 import type { NS } from './locales.ts'
 import { PixelMascotCanvas } from './mascot/PixelMascotCanvas.tsx'
 import { tamagotchiStore, type MascotSkin } from './mascot/tamagotchi-store.ts'
+import { PricingPanel } from './PricingPanel.tsx'
+import { currentChatOutputPrice, formatUsd, usdPerToken } from './pricing.ts'
 import { ActivityPipelineView } from './telemetry/ActivityPipelineView.tsx'
 import { LiveTokenGraph } from './telemetry/LiveTokenGraph.tsx'
 import { useCompletionCue, useLiveTelemetry } from './telemetry/telemetry-state.ts'
@@ -32,7 +34,7 @@ function formatTokens(tokens: number): string {
 }
 
 /** The skins offered by the picker, in display order. */
-const SKINS: readonly MascotSkin[] = ['byte', 'kraken', 'neko']
+const SKINS: readonly MascotSkin[] = ['byte', 'kraken', 'neko', 'ni']
 
 export interface ActivityHeaderPillProps {
   /** Conversation snapshot selector from the session standard kit. */
@@ -76,6 +78,9 @@ export function ActivityHeaderPill({ useSession, useProjection, t }: ActivityHea
     playRetroSound('blip', soundEnabled)
   }
 
+  // Rough cost of the answer's estimated output tokens at the current tier.
+  const lastAnswerPrice = formatUsd(turnTokens * usdPerToken(currentChatOutputPrice()))
+
   return (
     <div ref={rootRef} className={css.root}>
       <button
@@ -88,7 +93,7 @@ export function ActivityHeaderPill({ useSession, useProjection, t }: ActivityHea
       >
         <PixelMascotCanvas skin={skin} state={mascotState} scale={1.8} interactive={false} />
         {turnTokens > 0 ? (
-          <span className={css.tokenText}>{t('header.pill.tokens', { tokens: formatTokens(turnTokens) })}</span>
+          <span className={css.tokenText}>{t('header.pill.tokens', { tokens: formatTokens(turnTokens), price: lastAnswerPrice })}</span>
         ) : (
           <span className={css.idleText}>{happiness}%</span>
         )}
@@ -184,6 +189,8 @@ export function ActivityHeaderPill({ useSession, useProjection, t }: ActivityHea
                 useProjection={useProjection}
                 t={t}
               />
+
+              <PricingPanel t={t} />
             </div>
           </div>
         </div>

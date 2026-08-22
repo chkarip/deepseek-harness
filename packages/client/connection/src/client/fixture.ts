@@ -2445,6 +2445,50 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         }
         return ok(request, { sessionId: child.sessionId })
       },
+      mergeForks: (request) => {
+        const { sessionId } = request.payload
+        const source = summaryOf(sessionId)
+        if (source === undefined) {
+          return err(request, {
+            code: 'session-not-found',
+            message: `no session ${sessionId}`,
+            details: { sessionId },
+          })
+        }
+        const children = sessions.filter(candidate => candidate.parentSessionId === sessionId)
+        if (children.length === 0) {
+          return err(request, {
+            code: 'no-forks',
+            message: `session ${sessionId} has no forks to merge`,
+            details: { sessionId },
+          })
+        }
+        // Replay each child's own-work events (after its seed boundary) into
+        // the parent's log, then remove the child rows — the fixture mirrors
+        // the host contract without a real merge engine.
+        const parentLog = logs.get(sessionId) ?? []
+        for (const child of children) {
+          const childLog = logs.get(child.sessionId) ?? []
+          const ownStart = childLog.findLastIndex(e => e.type === 'session/end-seed') + 1
+          for (const event of childLog.slice(ownStart)) {
+            if (event.type === 'session/end-seed') continue
+            const surface = event as SessionEvent & { surfaceOp?: unknown }
+            parentLog.push({
+              ...event,
+              seq: parentLog.length,
+              ...surface.surfaceOp === undefined ? {} : { surfaceOp: surface.surfaceOp },
+            } as SessionEvent)
+          }
+          logs.set(sessionId, parentLog)
+          logs.delete(child.sessionId)
+          const at = sessions.indexOf(child)
+          if (at !== -1) sessions.splice(at, 1)
+        }
+        return ok(request, {
+          merged: children.map(child => ({ forkSessionId: child.sessionId, appendedEvents: 0 })),
+          failed: [],
+        })
+      },
       history: async (request) => {
         const log = logs.get(request.payload.sessionId) ?? []
         // Snapshot at request time, deliver after the transit delay (mirrors a real host under latency).
@@ -2877,9 +2921,9 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         if (missing !== undefined) return missing
         return ok(request, {
           skills: [
-            { name: 'fixture-demo', description: 'fixture 技能样本', whenToUse: '仅供 UI 目录渲染验收', modelInvocable: true, mode: false },
-            { name: 'fixture-user-only', description: 'fixture 仅用户技能样本', modelInvocable: false, mode: false },
-            { name: 'fixture-mode', description: 'fixture 模式技能样本', modelInvocable: true, mode: true },
+            { name: 'fixture-demo', description: 'fixture 技能样本', whenToUse: '仅供 UI 目录渲染验收', modelInvocable: true, mode: false, modeSkills: [] },
+            { name: 'fixture-user-only', description: 'fixture 仅用户技能样本', modelInvocable: false, mode: false, modeSkills: [] },
+            { name: 'fixture-mode', description: 'fixture 模式技能样本', modelInvocable: true, mode: true, modeSkills: ['fixture-demo'] },
           ],
         })
       },
@@ -3184,6 +3228,7 @@ export class FixtureApiClient extends AbstractApiClient {
       case 'session.selectModel': return this.api.sessions.selectModel(request)
       case 'session.rename': return this.api.sessions.rename(request)
       case 'session.fork': return this.api.sessions.fork(request)
+      case 'session.mergeForks': return this.api.sessions.mergeForks(request)
       case 'session.prompt': return this.api.sessions.prompt(request)
       case 'session.attachment': return this.api.sessions.attachment(request)
       case 'session.updateQueue': return this.api.sessions.updateQueue(request)

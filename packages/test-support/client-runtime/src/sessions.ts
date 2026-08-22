@@ -185,7 +185,7 @@ export class TestSessions implements ISessions {
   /** Calls observed on the service-level face, newest last. */
   readonly calls: {
     method: 'open' | 'openWindow' | 'openSubagent' | 'setSubagentCatalogOpen' | 'refreshSubagents'
-      | 'clear' | 'search' | 'fork' | 'create'
+      | 'clear' | 'search' | 'fork' | 'create' | 'mergeForks'
     args: unknown[]
   }[] = []
 
@@ -536,6 +536,27 @@ export class TestSessions implements ISessions {
   fork(opts: { sessionId: SessionId; atSeq?: number; increaseTitle?: boolean }): Promise<SessionId> {
     this.calls.push({ method: 'fork', args: [opts] })
     return Promise.resolve(opts.sessionId)
+  }
+
+  /**
+   * Recorded merge stub: forks with a recorded `parentSessionId` of the
+   * target are removed from the fixture list and reported merged (the call
+   * itself is always recorded).
+   * @param sessionId - the session whose forks merge into it.
+   * @returns the merged/removed accounts (never any failed forks).
+   */
+  mergeForks(sessionId: SessionId): ReturnType<ISessions['mergeForks']> {
+    this.calls.push({ method: 'mergeForks', args: [sessionId] })
+    const list = this.list.getSnapshot()
+    const merged = list.ids
+      .filter(id => list.byId[id]?.parentId === sessionId)
+      .map(forkSessionId => ({ forkSessionId, appendedEvents: 0 }))
+    const removed = new Set(merged.map(result => result.forkSessionId))
+    this.list.update((draft) => {
+      draft.ids = draft.ids.filter(id => !removed.has(id))
+      draft.byId = Object.fromEntries(Object.entries(draft.byId).filter(([id]) => !removed.has(id as SessionId)))
+    })
+    return Promise.resolve({ merged, failed: [] })
   }
 
   /**

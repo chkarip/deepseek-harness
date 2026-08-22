@@ -9,13 +9,14 @@ import { playRetroSound } from './audio/retro-synth.ts'
 import type { NS } from './locales.ts'
 import { PixelMascotCanvas } from './mascot/PixelMascotCanvas.tsx'
 import { tamagotchiStore, type MascotSkin } from './mascot/tamagotchi-store.ts'
+import { PricingPanel } from './PricingPanel.tsx'
 import { ActivityPipelineView } from './telemetry/ActivityPipelineView.tsx'
 import { LiveTokenGraph } from './telemetry/LiveTokenGraph.tsx'
 import { useLiveTelemetry } from './telemetry/telemetry-state.ts'
 import css from './ActivityMonitorView.module.css'
 
 /** The skins offered by the picker, in display order. */
-const SKINS: readonly MascotSkin[] = ['byte', 'kraken', 'neko']
+const SKINS: readonly MascotSkin[] = ['byte', 'kraken', 'neko', 'ni']
 
 export interface ActivityMonitorViewProps {
   /** Conversation snapshot selector from the session standard kit. */
@@ -139,6 +140,10 @@ export const ActivityMonitorView = memo(function ActivityMonitorView({
             useProjection={useProjection}
             t={t}
           />
+        </div>
+
+        <div className={css.pipelineCard}>
+          <PricingPanel t={t} />
         </div>
       </div>
     </div>

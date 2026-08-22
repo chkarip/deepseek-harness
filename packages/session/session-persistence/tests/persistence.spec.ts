@@ -118,6 +118,10 @@ class MemoryPersistence extends SessionPersistence implements PersistenceBackend
     return this.coordinator.readFrom(id, fromSeq, signal)
   }
 
+  delete(id: SessionId, signal?: AbortSignal): Promise<void> {
+    return this.coordinator.delete(id, signal)
+  }
+
   // --- PersistenceBackend hooks (the Map storage primitives) ---
 
   // A Map-backed store has no torn tails, so `tornMarker` is never set.
@@ -172,6 +176,10 @@ class MemoryPersistence extends SessionPersistence implements PersistenceBackend
       header: structuredClone(entry.meta),
       revision: memoryRevision(entry),
     }))
+  }
+
+  async deleteStored(id: SessionId): Promise<void> {
+    this.store.delete(id)
   }
 }
 
@@ -234,6 +242,10 @@ class ControlledBackend implements PersistenceBackend<never> {
     return [...this.store.values()].map(entry => structuredClone(entry.meta))
   }
 
+  async deleteStored(id: SessionId): Promise<void> {
+    this.store.delete(id)
+  }
+
   async close(): Promise<void> {
     this.lifecycle.push('close')
   }
@@ -248,6 +260,27 @@ runPersistenceContract('memory', async () => {
     persistence: ctx.sessionPersistence,
     dispose: async () => { await fiber.dispose() },
   }
+})
+
+describe('PersistenceCoordinator.delete', () => {
+  it('refuses while a live Session owns the id', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SessionStore)
+    await ctx.plugin(MemoryPersistence)
+    const persistence = ctx.sessionPersistence
+    const m = meta('delete-live')
+    await persistence.create(m)
+    await persistence.append(m.id, oneTurnLog())
+    // Mount a live session on the same ctx the write path observes.
+    ctx.sessions.create(m.id, {
+      seed: (await persistence.load(m.id)).events,
+      ...m.cwd === undefined ? {} : { meta: { cwd: m.cwd } },
+    })
+
+    await expect(persistence.delete(m.id)).rejects.toThrow(/live/)
+    // The artifact survives the refusal.
+    expect((await persistence.load(m.id)).events.length).toBeGreaterThan(0)
+  })
 })
 
 describe('the inherited readRaw default', () => {

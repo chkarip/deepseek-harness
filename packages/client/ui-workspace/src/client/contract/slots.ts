@@ -29,7 +29,7 @@ import type { HostObservable, PropsHooks, PropsLocale, PropsRenderSlots, PropsRu
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {
-  SessionId, SessionSearchResultItem, WorkspaceId, WorkspaceView,
+  ForkMergeOutcome, SessionId, SessionSearchResultItem, WorkspaceId, WorkspaceView,
 } from '@deepseek-ai/dsh-client-runtime/client'
 import type { createWorkspaceViewStore } from '../stores.ts'
 
@@ -57,7 +57,30 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     'conversation.hero.workspace.directoryFlow': { kind: 'single'; scope: 'root'; owner: DirectoryFlowOwnerProps }
     /** Directory-flow hole under the sidebar browsing region (declared by the WorkspaceBrowser entry). */
     'sidebar.workspaces.directoryFlow': { kind: 'single'; scope: 'root'; owner: DirectoryFlowOwnerProps }
+    /**
+     * Extra session-row actions rendered inside the row's ⋯ menu, below the
+     * data items (rename/fork/archive). Declared by this package's
+     * WorkspaceBrowser entry; occupants (e.g. ui-panels' "Add in panel")
+     * register one component per action. The owner renders every entry as a
+     * caller-owned menu row inside the portaled list; a row's click does not
+     * go through the menu's `onSelect`, so the occupant must call `onClose`
+     * to dismiss the menu after acting.
+     */
+    'sidebar.workspaces.session-actions': { kind: 'list'; scope: 'root'; owner: SessionRowActionOwnerProps }
   }
+}
+
+/**
+ * Owner share of one extra session-row action. The occupant renders its own
+ * menu row; `sessionId` is the row's session and `onClose` dismisses the row
+ * menu (the occupant's click is inside the portaled list, which the Menu does
+ * not auto-close).
+ */
+export interface SessionRowActionOwnerProps {
+  /** The session the row represents. */
+  sessionId: SessionId
+  /** Dismiss the row's ⋯ menu (call after acting). */
+  onClose: () => void
 }
 
 /** The two directory-flow holes; a flow package's client half registers its one component into both. */
@@ -114,6 +137,14 @@ export type WorkspaceBrowserInjected = {
   renameSession: (sessionId: SessionId, title: string) => Promise<void>
   /** Fork a Session at its last completed turn and open the child. */
   forkSession: (sessionId: SessionId) => void
+  /**
+   * Merge every direct fork of a session into it and delete the merged forks
+   * (host-side: each fork's own-work turns replay into the original's log,
+   * then the fork sessions are permanently removed). Resolves with the merged
+   * and any unmergeable fork accounts.
+   * @param sessionId - the session whose forks merge into it.
+   */
+  mergeForks: (sessionId: SessionId) => Promise<ForkMergeOutcome>
   /** Rename a Host Workspace (rejects on name conflict; resolves on durability). */
   renameWorkspace: (workspaceId: WorkspaceId, title: string) => Promise<void>
   /** Delete only a Host Workspace registration; directory and Session logs remain. */
@@ -142,7 +173,7 @@ export type WorkspaceBrowserInjected = {
 /** Full browser props: shell owner share + viewing store + injected actions + the locale seat. */
 export type WorkspaceBrowserProps =
   PropsRuntime<'sidebar.workspaces'>
-  & PropsRenderSlots<'sidebar.workspaces.directoryFlow'>
+  & PropsRenderSlots<'sidebar.workspaces.directoryFlow' | 'sidebar.workspaces.session-actions'>
   & PropsStore<ReturnType<typeof createWorkspaceViewStore>>
   & Omit<WorkspaceBrowserInjected, 'hooks'>
   & PropsHooks<WorkspaceBrowserInjected['hooks']>

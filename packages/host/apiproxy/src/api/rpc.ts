@@ -82,6 +82,12 @@ export interface RpcErrorDetailsMap {
   'model-discovery-failed': { settingsNs: string; baseURL?: string }
   'title-invalid': { sessionId: SessionId }
   'fork-unavailable': { sessionId: SessionId }
+  /** The session whose forks were requested is itself running a turn. */
+  'session-busy': { sessionId: SessionId }
+  /** `session.mergeForks` found no direct ordinary forks of the session. */
+  'no-forks': { sessionId: SessionId }
+  /** Every fork of the session was unmergeable; details carry the per-fork failures. */
+  'fork-unmergeable': { sessionId: SessionId; failed: { forkSessionId: SessionId; reason: string }[] }
   'subagent-parent-unavailable': { parentSessionId: SessionId }
   'subagent-not-found': { parentSessionId: SessionId; childSessionId: SessionId }
   'subagent-catalog-diagnostic': {

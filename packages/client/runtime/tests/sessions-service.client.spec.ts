@@ -594,6 +594,64 @@ describe('fork', () => {
   })
 })
 
+describe('mergeForks', () => {
+  it('removes the merged forks from the list and reports the host outcome', async () => {
+    const b = bench()
+    await feedList(b, [{ id: 'source', cwd: '/work' }, { id: 'fork-a' }, { id: 'fork-b' }])
+    b.api.onMergeForks = () => Promise.resolve(ok({
+      merged: [
+        { forkSessionId: sid('fork-a'), appendedEvents: 5 },
+        { forkSessionId: sid('fork-b'), appendedEvents: 0 },
+      ],
+      failed: [],
+    }))
+
+    await expect(b.svc.mergeForks(sid('source'))).resolves.toEqual({
+      merged: [
+        { forkSessionId: sid('fork-a'), appendedEvents: 5 },
+        { forkSessionId: sid('fork-b'), appendedEvents: 0 },
+      ],
+      failed: [],
+    })
+
+    expect(b.api.callsOf('session.mergeForks')).toEqual([{ sessionId: 'source' }])
+    // The host deletes the merged forks, so its post-merge list account no
+    // longer contains them; the manager's refresh reconciles against that.
+    await feedList(b, [{ id: 'source', cwd: '/work' }])
+    const { ids, byId } = b.svc.list.getSnapshot()
+    expect(ids).toEqual([sid('source')])
+    expect(byId[sid('fork-a')]).toBeUndefined()
+    expect(byId[sid('fork-b')]).toBeUndefined()
+  })
+
+  it('surfaces unmergeable forks and keeps them in the list', async () => {
+    const b = bench()
+    await feedList(b, [{ id: 'source', cwd: '/work' }, { id: 'fork-a' }])
+    b.api.onMergeForks = () => Promise.resolve(ok({
+      merged: [],
+      failed: [{ forkSessionId: sid('fork-a'), reason: 'contains a surface-replacing compaction event' }],
+    }))
+
+    await expect(b.svc.mergeForks(sid('source'))).resolves.toEqual({
+      merged: [],
+      failed: [{ forkSessionId: sid('fork-a'), reason: 'contains a surface-replacing compaction event' }],
+    })
+    await Promise.resolve()
+    expect(b.svc.list.getSnapshot().byId[sid('fork-a')]).toBeDefined()
+  })
+
+  it('throws the structured error when the host rejects', async () => {
+    const b = bench()
+    await feedList(b, [{ id: 'source', cwd: '/work' }])
+    b.api.onMergeForks = () => Promise.resolve(err({
+      code: 'session-busy', message: 'the session is still running', details: { sessionId: sid('source') },
+    }))
+
+    await expect(b.svc.mergeForks(sid('source')))
+      .rejects.toThrow('session fork merge failed: session-busy: the session is still running')
+  })
+})
+
 describe('scope lifecycle rides the list mirror (entity parity: no client-side pre-birth)', () => {
   it('a session-added frame births the row (blank) and makes the scope resolvable; removal prunes it', async () => {
     const b = bench()

@@ -114,6 +114,14 @@ interface SkillSummary {
   readonly whenToUse?: string
   /** Whether the skill declares itself a sticky session mode (`mode: true` frontmatter). */
   readonly mode?: boolean
+  /**
+   * Member skills a mode skill carries (`skills:` frontmatter): their bodies
+   * render alongside the mode's own for as long as it is active. Absent or
+   * empty on every skill that is not a mode. Membership is resolved where the
+   * mode is rendered, so it changes nothing about how a member is invoked on
+   * its own.
+   */
+  readonly modeSkills?: readonly string[]
   /** Resolved model and user invocation controls. */
   readonly invocation: SkillInvocationPolicy
   /** Discovery source that produced this winning skill. */
@@ -126,6 +134,8 @@ interface SkillSummary {
 ```
 
 `ctx.skills.list()` 保留全部四种策略组合。`isModelInvocable(skill)` 和 `isUserInvocable(skill)` 分别读取对应的必填字段。仅供模型调用的 skill 设置 `{ modelInvocable: true, userInvocable: false }`，仅供用户调用的 skill 设置 `{ modelInvocable: false, userInvocable: true }`，两个字段均设为 `false` 后，该 skill 只能由受信的 `ctx.skills.get()` 调用方获取。本地提供方读取名称完全匹配的 kebab-case frontmatter 键 `disable-model-invocation` 和 `user-invocable`，将省略的字段默认为 `true`，并为每个解析出的 skill 生成这个规范化策略。
+
+本地提供方把模式字段对 `mode` 与 `skills` 一起读取：`skills` 列出模式所携带的成员 skill；非布尔的 `mode`、不是合法 skill 名称数组的 `skills`，以及缺少 `mode: true` 的 `skills`，都会带着具名警告忽略该 skill 文件。成员关系以 `modeSkills` 贯穿摘要与定义；只有 [`dsh-skill-mode`](../../packages/skill/skill-mode/README.zh.md) 在渲染激活模式的正文时读取它。
 
 `SkillCatalogSnapshot` 用于区分已确定的不存在与提供方的瞬时失败或发现期间持续变化的目录。`skills` 包含该次观测中收集、排序且与调用策略无关的摘要；只有每个已注册提供方都在没有并发目录修订时完成发现，`complete` 才为 true。不完整快照不会缓存，因此每个消费方可以保留上一份经过自身过滤的可用目录并重试。
 

@@ -22,6 +22,30 @@ import type { ObservableSnapshot } from './store.ts'
 
 export type { AgentContext } from '../agents/scope.ts'
 
+/** One fork merged into its parent by {@link ISessions.mergeForks}. */
+export interface ForkMergeResult {
+  /** The merged fork session id (deleted after the merge). */
+  forkSessionId: SessionId
+  /** Number of own-work events replayed into the parent's log. */
+  appendedEvents: number
+}
+
+/** One fork {@link ISessions.mergeForks} could not merge (left intact). */
+export interface ForkMergeFailure {
+  /** The unmerged fork session id. */
+  forkSessionId: SessionId
+  /** Why the fork cannot be merged. */
+  reason: string
+}
+
+/** The outcome of {@link ISessions.mergeForks}. */
+export interface ForkMergeOutcome {
+  /** Forks merged into the parent and deleted. */
+  merged: readonly ForkMergeResult[]
+  /** Forks that could not be merged and remain in the list. */
+  failed: readonly ForkMergeFailure[]
+}
+
 /** The sessions-service face injected as `ctx.sessions`. */
 export interface ISessions {
   /** The useSessions standard feed (list rows + current selection; read face — writes stay inside the domain). */
@@ -114,6 +138,19 @@ export interface ISessions {
    * @throws when the fork fails, or when a requested child-title rename fails after creation.
    */
   fork(opts: { sessionId: SessionId; atSeq?: number; increaseTitle?: boolean }): Promise<SessionId>
+  /**
+   * Merge every direct fork of a session into it and delete the merged forks.
+   * The host replays each fork's own-work turns into the original's log,
+   * disposes the fork agents, removes their durable logs, and detaches their
+   * workspace accounting; on resolution the deleted forks are gone from the
+   * list store. Forks that cannot be merged (e.g. surface-replacing
+   * compaction in their own work) are reported in `failed` and left intact.
+   * @param sessionId - the session whose forks merge into it.
+   * @returns the merged and unmerged fork accounts.
+   * @throws when the parent is unknown or running, when the session has no
+   *   forks, or when every fork is unmergeable.
+   */
+  mergeForks(sessionId: SessionId): Promise<ForkMergeOutcome>
   /**
    * Register a per-session standard-props provider (hooks become `use<Name>`
    * selector hooks on the render side; props spread verbatim).

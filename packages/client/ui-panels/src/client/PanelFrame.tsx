@@ -144,6 +144,19 @@ export function PanelFrame({
           ✕
         </button>
       </header>
+      {(panel.recapGoal !== undefined || panel.recapResult !== undefined) && (
+        <div className={css.summaryArea} data-panel-chrome>
+          <details className={css.summaryBlock} open>
+            <summary>{t('panel.recap.title')}</summary>
+            {panel.recapGoal !== undefined && (
+              <p className={css.summaryText}><strong>{t('panel.recap.goal')}</strong> {panel.recapGoal}</p>
+            )}
+            {panel.recapResult !== undefined && (
+              <p className={css.summaryText}><strong>{t('panel.recap.result')}</strong> {panel.recapResult}</p>
+            )}
+          </details>
+        </div>
+      )}
       {(panel.summaryState === 'generating' || panel.summaryState === 'error' || panel.summary !== undefined) && (
         <div className={css.summaryArea} data-panel-chrome>
           {panel.summaryState === 'generating' && (

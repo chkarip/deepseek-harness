@@ -62,9 +62,24 @@ function waitForSnapshot<T>(
 function lastAssistantText(
   snapshot: { nodes: readonly { kind: string; blocks?: readonly { kind: string; text?: string }[] }[] },
 ): string | undefined {
+  return lastTextOfKind(snapshot, 'assistant')
+}
+
+/** Extract the last finalized user text from the snapshot's ordered nodes. */
+function lastUserText(
+  snapshot: { nodes: readonly { kind: string; blocks?: readonly { kind: string; text?: string }[] }[] },
+): string | undefined {
+  return lastTextOfKind(snapshot, 'user')
+}
+
+/** Walk the ordered nodes backward for the newest non-empty text of one role. */
+function lastTextOfKind(
+  snapshot: { nodes: readonly { kind: string; blocks?: readonly { kind: string; text?: string }[] }[] },
+  kind: string,
+): string | undefined {
   for (let index = snapshot.nodes.length - 1; index >= 0; index--) {
     const node = snapshot.nodes[index]
-    if (node?.kind !== 'assistant' || node.blocks === undefined) continue
+    if (node?.kind !== kind || node.blocks === undefined) continue
     const text = node.blocks
       .filter(block => block.kind === 'text' && block.text !== undefined)
       .map(block => block.text)
@@ -108,4 +123,42 @@ export async function summarizeSession(
     SUMMARY_TIMEOUT_MS,
   )
   return lastAssistantText(session.getSnapshot()) ?? ''
+}
+
+/** A locally-extracted recap of the last exchange: the user's goal and the answer's result. */
+export interface RecapPair {
+  goal: string
+  result: string
+}
+
+/** Longest goal/result text kept in the compact recap card (long answers are clipped). */
+const RECAP_LIMIT = 400
+
+/** Clip a long line for the compact recap card. */
+function clip(text: string): string {
+  return text.length <= RECAP_LIMIT ? text : `${text.slice(0, RECAP_LIMIT)}…`
+}
+
+/**
+ * Auto-recap of the most recent exchange, extracted LOCALLY from the session
+ * snapshot — no model call, so nothing is sent into the conversation and no
+ * prompt ever appears as a user message. The goal is the last user message;
+ * the result is the last assistant message.
+ * @param sessions - the sessions service (binding resolution).
+ * @param sessionId - the panel's session.
+ * @returns the goal/result pair, or undefined when there is no completed answer yet.
+ */
+export function extractRecap(sessions: ISessions, sessionId: SessionId): RecapPair | undefined {
+  const snapshot = sessions.binding(sessionId)?.session.getSnapshot()
+  if (snapshot === undefined) return undefined
+  const result = lastAssistantText(snapshot)
+  if (result === undefined) return undefined
+  const goal = lastUserText(snapshot)
+  if (goal === undefined) return undefined
+  return { goal: clip(goal), result: clip(result) }
+}
+
+/** Number of completed turns in a session (undefined when the session is not addressable). */
+export function completedTurnCount(sessions: ISessions, sessionId: SessionId): number | undefined {
+  return sessions.binding(sessionId)?.session.getSnapshot().turnEnds.size
 }

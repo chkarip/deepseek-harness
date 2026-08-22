@@ -8,7 +8,7 @@
  * backing it. Nothing in it is host state, and it emits no cordis events.
  */
 
-export type MascotSkin = 'byte' | 'kraken' | 'neko'
+export type MascotSkin = 'byte' | 'kraken' | 'neko' | 'ni'
 
 /** The mascot's stats and the user's display and sound preferences. */
 export interface TamagotchiState {

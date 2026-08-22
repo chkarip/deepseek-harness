@@ -114,6 +114,14 @@ interface SkillSummary {
   readonly whenToUse?: string
   /** Whether the skill declares itself a sticky session mode (`mode: true` frontmatter). */
   readonly mode?: boolean
+  /**
+   * Member skills a mode skill carries (`skills:` frontmatter): their bodies
+   * render alongside the mode's own for as long as it is active. Absent or
+   * empty on every skill that is not a mode. Membership is resolved where the
+   * mode is rendered, so it changes nothing about how a member is invoked on
+   * its own.
+   */
+  readonly modeSkills?: readonly string[]
   /** Resolved model and user invocation controls. */
   readonly invocation: SkillInvocationPolicy
   /** Discovery source that produced this winning skill. */
@@ -126,6 +134,8 @@ interface SkillSummary {
 ```
 
 `ctx.skills.list()` preserves all four policy combinations. `isModelInvocable(skill)` and `isUserInvocable(skill)` read the corresponding required field. A model-only skill sets `{ modelInvocable: true, userInvocable: false }`, a user-only skill sets `{ modelInvocable: false, userInvocable: true }`, and setting both fields to `false` keeps the skill available only through trusted `ctx.skills.get()` callers. The local provider reads the exact kebab-case frontmatter keys `disable-model-invocation` and `user-invocable`, defaults omitted fields to `true`, and projects every parsed skill into this normalized policy.
+
+The local provider reads the mode pair `mode` and `skills` together: `skills` lists the member skills a mode carries, and a non-boolean `mode`, a `skills` value that is not an array of valid skill names, or `skills` without `mode: true` ignores that skill file with a named warning. Membership carries as `modeSkills` through the summary and definition; only [`dsh-skill-mode`](../../packages/skill/skill-mode/README.md) reads it, when it renders an active mode's bodies.
 
 `SkillCatalogSnapshot` distinguishes authoritative absence from transient provider failure or a catalog that kept changing during discovery. `skills` contains the sorted invocation-neutral summaries collected in that observation; `complete` is true only when every registered provider completed without a concurrent catalog revision. Incomplete snapshots are not cached, allowing each consumer to retain its last-good filtered catalog and retry.
 

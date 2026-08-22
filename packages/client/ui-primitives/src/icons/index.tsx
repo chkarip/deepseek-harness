@@ -157,6 +157,17 @@ export const IconBranchOutline16 = ({ size = 16, className }: IconProps) => (
   </svg>
 )
 
+/** ic_ds_merge_outline_16 — two branches converging into one (fork merge). */
+export const IconMergeOutline16 = ({ size = 16, className }: IconProps) => (
+  <svg width={size} height={size} className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 3v3.2c0 1.5.85 2.9 2.15 3.75.7.5 1.5.75 2.35.75H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <path d="M12 3v3.2c0 1.5-.85 2.9-2.15 3.75-.7.5-1.5.75-2.35.75H7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <circle cx="4" cy="2.75" r="1.5" stroke="currentColor" strokeWidth="1.4" />
+    <circle cx="12" cy="2.75" r="1.5" stroke="currentColor" strokeWidth="1.4" />
+    <circle cx="8" cy="13.25" r="1.5" stroke="currentColor" strokeWidth="1.4" />
+  </svg>
+)
+
 /** ic_ds_chevron_down_outline_14 */
 export const IconChevronDownOutline14 = ({ size = 14, className }: IconProps) => (
   <svg width={size} height={size} className={className} viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">

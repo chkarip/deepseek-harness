@@ -199,6 +199,16 @@ export interface PersistenceBackend<TornMarker = unknown> {
   list(signal?: AbortSignal): Promise<SessionHeader[]>
 
   /**
+   * Permanently remove a session's durable artifact. Idempotent for an
+   * absent session (an id that was never materialized resolves without
+   * writing). Used by fork merging, which deletes a merged child's log after
+   * its own work has been replayed into the parent.
+   * @param id - the persisted session id to remove.
+   * @param signal - optional cancellation for backend removal work.
+   */
+  deleteStored(id: SessionId, signal?: AbortSignal): Promise<void>
+
+  /**
    * Optional side-effect-free artifact locator, used to point refusal
    * diagnostics ({@link SessionFormatUnsupportedError}) at the raw log.
    * Backends without one artifact per session omit it or return `undefined`.
@@ -677,6 +687,34 @@ export class PersistenceCoordinator<TornMarker = unknown> {
       throw new TypeError('session event batch is not losslessly JSON-serializable because it contains non-JSON-serializable data')
     }
     return this.serialize(id, () => this.appendCore(id, batch))
+  }
+
+  /**
+   * Permanently remove a session: drop every in-memory bookkeeping entry for
+   * the id and delete the durable artifact through the backend. Refuses while
+   * a live Session lifecycle owns the id (its flushes would recreate the
+   * artifact after deletion) or while a disposed lifecycle's final drain is
+   * still in flight (the drain would append to the removed log). A session
+   * that was created but never materialized resolves without a backend write.
+   * @param id - the persisted session id to remove.
+   * @param signal - optional cancellation for the queued removal work.
+   */
+  delete(id: SessionId, signal?: AbortSignal): Promise<void> {
+    return this.serialize(id, () => this.deleteCore(id), signal)
+  }
+
+  private async deleteCore(id: SessionId): Promise<void> {
+    for (const session of this.live.keys()) {
+      if (session.header.id === id) {
+        throw new Error(`cannot delete session "${id}": it is live (dispose its agent first)`)
+      }
+    }
+    if (this.retirements.has(id)) {
+      throw new Error(`cannot delete session "${id}": its final flush is still draining`)
+    }
+    this.preparations.invalidate(id)
+    this.states.delete(id)
+    await this.backend.deleteStored(id)
   }
 
   private async appendCore(id: SessionId, events: readonly SessionEvent[]): Promise<void> {

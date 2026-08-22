@@ -246,6 +246,30 @@ export class SqliteStore implements PersistenceBackend<number> {
   }
 
   /**
+   * Permanently remove a session's metadata row and every event row. An
+   * absent session resolves without writing.
+   * @param id - the persisted session id to remove.
+   * @param signal - optional cancellation before the removal work.
+   */
+  async deleteStored(id: SessionId, signal?: AbortSignal): Promise<void> {
+    await this.observe(signal)
+    this.db.exec(sql('begin-immediate'))
+    try {
+      validateSchemaForMutation(this.databaseConstructor, this.db, this.databasePath)
+      this.db.prepare(sql('delete-session-events')).run(id)
+      const removed = this.db.prepare(sql('delete-session')).run(id)
+      /* v8 ignore next -- an absent session resolves idempotently without a row to delete. */
+      if (Number(removed.changes) === 0) {
+        this.db.exec(sql('commit'))
+        return
+      }
+      this.db.exec(sql('commit'))
+    } catch (error: unknown) {
+      this.rollback(error, 'delete')
+    }
+  }
+
+  /**
    * Return every materialized header with its source-qualified revision.
    * @param signal - optional cancellation before or after the metadata query.
    * @returns stored headers and revisions without loading event rows.

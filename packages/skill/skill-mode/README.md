@@ -12,7 +12,7 @@ Logged, per-session sticky skill modes: a user-invoked `mode: true` skill whose 
 
 ## Model interaction
 
-While a mode is active, the `skill-mode` system prompt section renders the skill's `<skill_content>` body, warmed from the registry at selection time and re-resolved on `session/created` (resume) and `skills/change` (skill edits). A mode whose skill disappears, loses `mode: true`, or becomes model-only is dropped automatically with the logged state reset to `null`. Mode activation is a user gesture: only `mode: true`, user-invocable skills can be entered, and the model never activates a mode — it only follows the injected body.
+While a mode is active, the `skill-mode` system prompt section renders the skill's `<skill_content>` body followed by the body of every skill its `skills:` list carries, warmed from the registry at selection time and re-resolved on `session/created` (resume) and `skills/change` (skill edits). A mode whose skill disappears, loses `mode: true`, or becomes model-only is dropped automatically with the logged state reset to `null`. Mode activation is a user gesture: only `mode: true`, user-invocable skills can be entered, and the model never activates a mode — it only follows the injected body.
 
 ## The `/mode` command
 
@@ -35,6 +35,23 @@ mode: true
 ```
 
 The `mode` flag is parsed by `dsh-skill-filesystem` into the skill summary and definition; skills without it are ordinary skills. Place the skill in any discovery root (project `.agents/skills`, user `~/.agents/skills`, bundled), then enter it with `/mode unslop`.
+
+## Carrying other skills
+
+A mode skill lists the skills it carries in `skills:`, and every member's body renders alongside the mode's own for as long as the mode is active:
+
+```markdown
+---
+name: poteto
+description: Router for rigorous engineering work.
+mode: true
+skills: [unslop]
+---
+```
+
+Members are resolved one level: a member's own `skills:` list is ignored, so expansion terminates by construction. Duplicates and a self-reference are dropped. A member need only exist and be user-invocable — `mode: true` is not required of it — and a member that no longer loads is dropped with a warning while the mode itself stays active. `skills:` without `mode: true`, a non-array value, or a member that is not a valid kebab-case skill name ignores that skill file with a named warning.
+
+Membership is resolved only here, where the mode renders. A member remains an ordinary skill everywhere else: `/unslop` is the same one-shot injection whether or not a mode carrying it is active, and the model still loads it through the `skill` tool.
 
 ## Session projection
 
@@ -79,7 +96,7 @@ Skill mode "unslop" is active in this session. Follow its instructions.
 
 #### Token effect
 
-No mode adds no tokens; an active mode adds its skill body to every request for as long as it stays on. A mode body costs its own length once per request rather than once per turn, which is the trade against re-invoking the skill as a user message each turn.
+No mode adds no tokens; an active mode adds its skill body — and the body of every skill it carries — to every request for as long as it stays on. A mode body costs its own length once per request rather than once per turn, which is the trade against re-invoking the skill as a user message each turn.
 
 #### KV Cache effect
 
@@ -101,7 +118,8 @@ The notice appends to history rather than editing the prefix, so it invalidates 
 
 ## Known Limitations and Deferred Work
 
-- **One mode at a time** — the logged state is a single name, so entering a mode replaces the active one. Stacking two mode skills would need a set-valued event and a defined body order, neither of which the format promises.
+- **One mode at a time** — the logged state is a single name, so entering a mode replaces the active one. Stacking two mode skills would need a set-valued event and a defined body order, neither of which the format promises; a mode that carries members expresses the same posture under one name.
+- **Membership is resolved from the file, not the log** — `skill/mode` logs the mode name alone, so editing a mode's `skills:` list changes what an already-logged session replays.
 - **The body is not diffed against the catalog** — an active mode renders its body in full even when `tool-skill` already listed that skill in the session-prefix catalog, so a mode skill's summary and its body can both reach the request.
 - **No model-side exit** — the model cannot leave a mode it finds inapplicable; it can only decline to apply the body and say so. Deployments wanting model-driven posture changes need a separate tool.
 - **Per-session, not per-agent-tree** — a subagent does not inherit its parent's mode; each session's mode state is its own logged quantity.

@@ -5,11 +5,12 @@
  * except workspace Rename/Delete and session Rename/Fork/Archive; the session
  * and workspace hover cards are suppressed while a menu is open.
  */
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import {
   HoverCard, IconArchiveOutline20, IconBranchOutline16, IconEditOutline16,
-  IconEllipsisOutline16, IconFolderClose16, IconFolderOpen16, IconPlusOutline16,
+  IconEllipsisOutline16, IconFolderClose16, IconFolderOpen16, IconMergeOutline16,
+  IconPlusOutline16,
   IconTrashOutline16, IconTriangleRightFill14, Menu, StateDot,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -354,12 +355,21 @@ export function SearchResultItem({ result, currentId, onOpen, t }: {
  * @param props.onRename - open the session rename dialog (id + current title).
  * @param props.onFork - fork a session at its last completed turn.
  * @param props.onArchive - archive a session by id.
+ * @param props.onMerge - open the browser-owned merge-forks confirmation (id).
+ * @param props.forkCount - number of direct forks this session has; 0 hides
+ * the Merge forks row (a session without forks has nothing to merge).
+ * @param props.renderSessionActions - renders the slot-driven extra rows for
+ * this row's ⋯ menu; the callback receives the row's menu close, so an
+ * occupant can dismiss the menu after acting.
  * @param props.drag - optional draggable-row wiring.
  * @param props.flat - omit the empty status slot in the hierarchy-free flat list.
  * @param props.t - the browser root's locale seat.
  * @returns the session row.
  */
-export function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork, onArchive, drag, flat = false, t }: {
+export function SessionNodeItem({
+  node, currentId, now, onOpen, onRename, onFork, onArchive, onMerge,
+  forkCount = 0, renderSessionActions, drag, flat = false, t,
+}: {
   node: SessionNode
   currentId: string | undefined
   now: number
@@ -370,6 +380,12 @@ export function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork
   onFork: (id: SessionNode['id']) => void
   /** Archive this session (row menu action; commits without a dialog). */
   onArchive: (id: SessionNode['id']) => void
+  /** Merge all forks of this session into it (row menu action; opens a confirmation). */
+  onMerge: (id: SessionNode['id'], forkCount: number) => void
+  /** Direct fork count of this session; 0 hides the Merge forks row. */
+  forkCount?: number | undefined
+  /** Render the slot-driven extra rows for this row's ⋯ menu. */
+  renderSessionActions: (onClose: () => void) => ReactNode
   /** Present only on draggable rows (workspace-group sessions outside search). */
   drag?: RowDragProps | undefined
   /** The row is rendered without a parent Workspace header. */
@@ -391,6 +407,9 @@ export function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork
     { id: 'fork', label: t('menu.fork'), icon: <IconBranchOutline16 /> },
     // 20-native glyph in the menu's 16px icon slot (Menu.module.css .itemIcon).
     { id: 'archive', label: t('menu.archiveSession'), icon: <IconArchiveOutline20 size={16} /> },
+    ...(forkCount > 0
+      ? [{ id: 'merge', label: t('menu.mergeForks', { n: forkCount }), icon: <IconMergeOutline16 /> }]
+      : []),
   ]
   // Figma session cell: pad 8, status slot 16, then a 4px title gap.
   const ownRow = (
@@ -448,11 +467,13 @@ export function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork
             open={menuOpen}
             onClose={() => { setMenuOpen(false) }}
             items={sessionMenuItems}
+            customRows={renderSessionActions(() => { setMenuOpen(false) })}
             onSelect={(id) => {
               setMenuOpen(false)
               if (id === 'rename') onRename(node.id, row.title)
               if (id === 'fork') onFork(node.id)
               if (id === 'archive') onArchive(node.id)
+              if (id === 'merge') onMerge(node.id, forkCount)
             }}
             portal
             closeOnPointerLeave

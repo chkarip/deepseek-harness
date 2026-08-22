@@ -6,6 +6,7 @@ import type {
   IApiClient, HostFrame, MuxFrame, RpcError, RpcRequest, RpcResult, SessionId,
   SessionSummary, SubagentAddress, SubagentCatalog, JobView, WorkspaceId,
 } from '@deepseek-ai/dsh-api-remotes/client'
+import type { ForkMergeOutcome } from '../contract/sessions.ts'
 // Value import from the inline-safe wire layer (not the connection plugin):
 // plugin-to-plugin value imports are a bundle purity error.
 import { transportError } from '@deepseek-ai/dsh-host-apiproxy/api'
@@ -561,6 +562,29 @@ export class SessionManager {
             blank: true,
           } })
         }
+      }
+      return result
+    } catch (error) {
+      return transportError(error)
+    }
+  }
+
+  /**
+   * Contract session.mergeForks; on success remove the merged forks from the
+   * local summaries immediately and schedule a list refresh so the host's
+   * post-delete account lands (the removed rows disappear synchronously, the
+   * refresh reconciles everything else).
+   * @param sessionId - the session whose forks merge into it.
+   * @returns the merged and unmerged fork accounts.
+   */
+  async mergeForks(sessionId: SessionId): Promise<RpcResult<ForkMergeOutcome>> {
+    try {
+      const { result } = await this.api.sessions.mergeForks({ sessionId })
+      if (result.ok) {
+        for (const merged of result.value.merged) {
+          this.recordMutation({ kind: 'remove', sessionId: merged.forkSessionId })
+        }
+        void this.refreshList()
       }
       return result
     } catch (error) {

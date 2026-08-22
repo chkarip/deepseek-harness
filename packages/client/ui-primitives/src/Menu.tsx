@@ -85,13 +85,20 @@ const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
  * scroll/resize; return null to skip placement for that frame.
  * @param props.footer - rows pinned below the scrolling items area, separated
  * by a hairline; they stay visible while the items above scroll.
+ * @param props.customRows - caller-rendered rows appended after the data
+ * `items` inside the scrolling viewport (before the pinned footer). The
+ * caller owns their appearance and click handling; a row click does NOT go
+ * through `onSelect`, so the caller also owns closing the menu. Used by
+ * slot-driven menus whose entries are components (e.g. the sidebar session
+ * row's extra actions).
  * @returns anchor wrapper with the conditional list.
  */
-export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, onClose, align = 'start', side = 'bottom', portal = false, closeOnPointerLeave = false, dense = false, compact = false, getAnchorRect, footer, className }: {
+export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, onClose, align = 'start', side = 'bottom', portal = false, closeOnPointerLeave = false, dense = false, compact = false, getAnchorRect, footer, customRows, className }: {
   open: boolean
   anchor: ReactNode
   items: readonly MenuEntry[]
   footer?: readonly MenuEntry[]
+  customRows?: ReactNode
   selectedId?: string | undefined
   selectedIds?: readonly string[] | undefined
   onSelect: (id: string) => void
@@ -275,6 +282,7 @@ export function Menu({ open, anchor, items, selectedId, selectedIds, onSelect, o
     >
       <div className={css.viewport} role="presentation">
         {items.map(renderEntry)}
+        {customRows}
       </div>
       {footer !== undefined && footer.length > 0 && (
         <div className={css.footer} role="presentation">

@@ -161,11 +161,10 @@ function renderGroup(
 }
 
 describe('WorkGroup', () => {
-  it('stays open while the turn runs and titles itself with the step count', () => {
+  it('stays collapsed by default even while the turn runs, titled with the step count', () => {
     const view = renderGroup([reasoningNode('think:1', 1), toolNode('tool:1', 1)], true)
-    expect(view.container.querySelector('[data-disclosure-row]')?.getAttribute('aria-expanded')).toBe('true')
+    expect(view.container.querySelector('[data-disclosure-row]')?.getAttribute('aria-expanded')).toBe('false')
     expect(view.getByText('2 个步骤')).toBeTruthy()
-    expect(view.container.querySelectorAll('[data-row]')).toHaveLength(2)
   })
 
   it('collapses to its last activity once the turn closes', () => {
@@ -194,17 +193,17 @@ describe('WorkGroup', () => {
       view.container.querySelector('[data-disclosure-row]')?.getAttribute('aria-expanded') ?? null
 
     const view = render(<WorkGroup {...props} running />)
-    expect(expanded(view)).toBe('true')
-
-    // A reader folds the group while the turn is still running.
-    fireEvent.click(view.container.querySelector('[data-disclosure-row]') as Element)
     expect(expanded(view)).toBe('false')
+
+    // A reader expands the group while the turn is still running.
+    fireEvent.click(view.container.querySelector('[data-disclosure-row]') as Element)
+    expect(expanded(view)).toBe('true')
 
     // The turn closing, and a later turn reopening, must not take the group back.
     view.rerender(<WorkGroup {...props} running={false} />)
-    expect(expanded(view)).toBe('false')
+    expect(expanded(view)).toBe('true')
     view.rerender(<WorkGroup {...props} running />)
-    expect(expanded(view)).toBe('false')
+    expect(expanded(view)).toBe('true')
   })
 
   it('renders no activity line for a group whose members left the window', () => {

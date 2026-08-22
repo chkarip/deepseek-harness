@@ -418,16 +418,19 @@ describe('skills domain schemas', () => {
     expect(() => skillListRequestSchema.parse({})).toThrow()
     expect(skillListValueSchema.parse({ skills: [] }).skills).toEqual([])
     const value = skillListValueSchema.parse({ skills: [
-      { name: 'commit-helper', description: 'Git commits', whenToUse: 'when committing', modelInvocable: true, mode: false },
-      { name: 'bare', description: 'No guidance', modelInvocable: false, mode: false },
+      { name: 'commit-helper', description: 'Git commits', whenToUse: 'when committing', modelInvocable: true, mode: false, modeSkills: [] },
+      { name: 'bare', description: 'No guidance', modelInvocable: false, mode: false, modeSkills: [] },
+      { name: 'poteto', description: 'Router', modelInvocable: true, mode: true, modeSkills: ['unslop'] },
     ] })
     expect(value.skills[0]?.whenToUse).toBe('when committing')
     expect(value.skills[1]?.whenToUse).toBeUndefined()
     expect(value.skills[1]?.modelInvocable).toBe(false)
     expect(value.skills[1]?.mode).toBe(false)
-    expect(() => skillEntrySchema.parse({ name: '', description: 'd', modelInvocable: true, mode: false })).toThrow()
-    // modelInvocable and mode are required wire data: an entry without them fails.
+    expect(value.skills[2]?.modeSkills).toEqual(['unslop'])
+    expect(() => skillEntrySchema.parse({ name: '', description: 'd', modelInvocable: true, mode: false, modeSkills: [] })).toThrow()
+    // modelInvocable, mode, and modeSkills are required wire data: an entry without them fails.
     expect(() => skillEntrySchema.parse({ name: 'n', description: 'd' })).toThrow()
+    expect(() => skillEntrySchema.parse({ name: 'n', description: 'd', modelInvocable: true, mode: false })).toThrow()
   })
 })
 

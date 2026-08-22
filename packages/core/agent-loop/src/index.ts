@@ -42,6 +42,8 @@ class FactoryOwnership {
   private readonly teardown = new AbortController()
   private readonly inactive = Promise.withResolvers<void>()
   private readonly liveAgents = new Set<() => Promise<void>>()
+  /** Id-keyed mirror of {@link liveAgents} for by-id teardown (fork merging). */
+  private readonly liveById = new Map<SessionId, () => Promise<void>>()
   private startupTasks = new Set<Promise<void>>()
 
   constructor(private readonly fiber: Context['fiber']) {}
@@ -56,9 +58,28 @@ class FactoryOwnership {
   }
 
   /** Track one live agent's shared teardown until it has run. */
-  track(dispose: () => Promise<void>): () => void {
+  track(id: SessionId, dispose: () => Promise<void>): () => void {
     this.liveAgents.add(dispose)
-    return () => { this.liveAgents.delete(dispose) }
+    this.liveById.set(id, dispose)
+    return () => {
+      this.liveAgents.delete(dispose)
+      if (this.liveById.get(id) === dispose) this.liveById.delete(id)
+    }
+  }
+
+  /**
+   * Tear down one live agent by id. Resolves `false` when no live lifecycle
+   * is tracked under that id (an idempotent miss); the tracked dispose
+   * closure stops the machine, drains, and unregisters exactly as the owner
+   * handle's dispose would.
+   * @param id - the shared agent/session id to tear down.
+   * @returns whether a live lifecycle was disposed.
+   */
+  async disposeById(id: SessionId): Promise<boolean> {
+    const dispose = this.liveById.get(id)
+    if (dispose === undefined) return false
+    await dispose()
+    return true
   }
 
   /** Join config startup work that begins before an agent exists. */
@@ -518,7 +539,7 @@ export class AgentLoop extends Service implements AgentFactory {
         }
       }
     })())
-    const untrack = this.ownership.track(dispose)
+    const untrack = this.ownership.track(id, dispose)
     let unfollowOwner: () => Promise<void> | void
     try {
       unfollowOwner = ownerCtx.effect(() => () => {
@@ -656,6 +677,19 @@ export class AgentLoop extends Service implements AgentFactory {
       throw new Error('cannot resume: session persistence is not configured (load a dsh-session-persistence backend)')
     }
     return this.resumeWith(ownerCtx, persistence, options)
+  }
+
+  /**
+   * Tear down one live agent by id (the {@link AgentFactory.disposeAgent}
+   * capability). Delegates to the ownership tracker's id-keyed lifecycle map,
+   * so the teardown runs the same memoized dispose an owner handle would:
+   * stop the machine, drain, unregister, remove the session, unwind the
+   * scope. Resolves `false` for an untracked id (idempotent miss).
+   * @param id - the shared agent/session id to tear down.
+   * @returns whether a live lifecycle was disposed.
+   */
+  disposeAgent(id: SessionId): Promise<boolean> {
+    return this.ownership.disposeById(id)
   }
 
   /** Resume through an explicit persistence handle used by the deferred config path. */

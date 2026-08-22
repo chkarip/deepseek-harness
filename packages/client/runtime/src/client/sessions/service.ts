@@ -28,7 +28,7 @@ import type { SessionProjectionMap } from '@deepseek-ai/dsh-session-projection/t
 import type { SnapshotStore } from '../contract/store.ts'
 import { createSnapshotStore } from '../contract/store.ts'
 import type { SessionFace } from '../contract/session.ts'
-import type { AgentContext, ISessions } from '../contract/sessions.ts'
+import type { AgentContext, ForkMergeOutcome, ISessions } from '../contract/sessions.ts'
 import { createScope, scopeOf as scopeTagOf } from '../agents/scope.ts'
 import type { ConversationRuntime } from './conversation-assembler.ts'
 import { SessionManager } from './manager.ts'
@@ -132,6 +132,22 @@ export class SessionForkError extends Error {
     readonly sourceSessionId: SessionId,
   ) {
     super(`session fork failed: ${rpcError.code}: ${rpcError.message}`)
+  }
+}
+
+/** Structured session.mergeForks failure. */
+export class SessionMergeForksError extends Error {
+  override readonly name = 'SessionMergeForksError'
+
+  /**
+   * @param rpcError - Host business or folded transport error.
+   * @param sessionId - the session whose forks were being merged.
+   */
+  constructor(
+    readonly rpcError: RpcError,
+    readonly sessionId: SessionId,
+  ) {
+    super(`session fork merge failed: ${rpcError.code}: ${rpcError.message}`)
   }
 }
 
@@ -545,6 +561,19 @@ export class SessionRuntime implements ISessions {
       if (!renamed.ok) throw new Error(`fork child rename failed: ${renamed.error.code}: ${renamed.error.message}`)
     }
     return childId
+  }
+
+  /**
+   * Merge every direct fork of a session into it (see {@link ISessions.mergeForks}).
+   * @param sessionId - the session whose forks merge into it.
+   * @returns the merged and unmerged fork accounts.
+   * @throws {SessionMergeForksError} on business/transport failure.
+   */
+  async mergeForks(sessionId: SessionId): Promise<ForkMergeOutcome> {
+    const result = await this.manager.mergeForks(sessionId)
+    if (!result.ok) throw new SessionMergeForksError(result.error, sessionId)
+    this.projectList()
+    return result.value
   }
 
   /**

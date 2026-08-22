@@ -211,6 +211,17 @@ export interface AgentFactory {
    * @returns the owned handle after setup, both announcements, and loop start complete.
    */
   resume(ownerCtx: Context, options: ResumeAgentOptions): Promise<AgentHandle>
+  /**
+   * Tear down one live agent by id when no handle holder is reachable (host
+   * operations such as fork merging must dispose a child agent before its
+   * session artifact can be deleted). The registered factory tracks each
+   * live lifecycle it created; absent an entry the call resolves `false`
+   * without work. Optional: a factory that omits it makes
+   * {@link AgentRegistry.dispose} fail loud for live ids.
+   * @param id - the shared agent/session id to tear down.
+   * @returns whether a live lifecycle was disposed.
+   */
+  disposeAgent?(id: SessionId): Promise<boolean>
 }
 
 /** Thrown when create/resume is called before an agent factory is registered. */
@@ -582,6 +593,26 @@ export class AgentRegistry extends Service {
    */
   get(id: SessionId): Agent | undefined {
     return this.store.get(id)?.agent
+  }
+
+  /**
+   * Tear down a live agent by id when the owning handle is out of reach. This
+   * is the capability widening host-level operations need (fork merging must
+   * dispose a merged child before its session artifact can be deleted): the
+   * registry does not itself hold the machine teardown, so it forwards to the
+   * registered factory's optional {@link AgentFactory.disposeAgent}.
+   * @param id - the shared agent/session id to tear down.
+   * @returns whether a live lifecycle was disposed.
+   * @throws when the id is live but the factory cannot dispose by id.
+   */
+  async dispose(id: SessionId): Promise<boolean> {
+    const entry = this.store.get(id)
+    if (entry === undefined) return false
+    const factory = this.factory?.target.disposeAgent
+    if (factory === undefined) {
+      throw new Error(`agent "${id}" cannot be disposed by id: the registered agent factory provides no disposeAgent capability`)
+    }
+    return factory(id)
   }
 
   /**

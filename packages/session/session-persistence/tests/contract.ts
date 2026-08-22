@@ -428,5 +428,24 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
         await dispose()
       }
     })
+
+    it('delete removes the durable log and metadata; list no longer sees the session', async () => {
+      const { persistence, dispose } = await make()
+      try {
+        const m = meta('delete-me')
+        await persistence.create(m)
+        await persistence.append(m.id, oneTurnLog())
+        expect((await persistence.load(m.id)).events.length).toBeGreaterThan(0)
+
+        await persistence.delete(m.id)
+
+        await expect(persistence.load(m.id)).rejects.toThrow(/not found|missing|absent|corrupt|reject/i)
+        expect((await persistence.list()).some(header => header.id === m.id)).toBe(false)
+        // Deleting again is idempotent for an already-absent id.
+        await expect(persistence.delete(m.id)).resolves.toBeUndefined()
+      } finally {
+        await dispose()
+      }
+    })
   })
 }

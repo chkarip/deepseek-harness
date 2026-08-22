@@ -12,7 +12,7 @@
 
 ## 模型交互
 
-mode 激活时，`skill-mode` 系统提示词区段会渲染该 skill 的 `<skill_content>` 正文，在选中时从注册表预热，并在 `session/created`（恢复）和 `skills/change`（skill 编辑）时重新解析。若某个 mode 的 skill 消失、失去 `mode: true` 或变成仅限模型，该 mode 会被自动丢弃，已记录状态重置为 `null`。激活 mode 属于用户手势：只能进入 `mode: true` 且用户可调用的 skill，模型永远不会激活 mode，只遵循被注入的正文。
+mode 激活时，`skill-mode` 系统提示词区段会渲染该 skill 的 `<skill_content>` 正文，随后渲染其 `skills:` 列表所携带的每个 skill 的正文，在选中时从注册表预热，并在 `session/created`（恢复）和 `skills/change`（skill 编辑）时重新解析。若某个 mode 的 skill 消失、失去 `mode: true` 或变成仅限模型，该 mode 会被自动丢弃，已记录状态重置为 `null`。激活 mode 属于用户手势：只能进入 `mode: true` 且用户可调用的 skill，模型永远不会激活 mode，只遵循被注入的正文。
 
 ## `/mode` 命令
 
@@ -35,6 +35,23 @@ mode: true
 ```
 
 `mode` 标志由 `dsh-skill-filesystem` 解析进 skill 概述与定义中；没有该标志的 skill 是普通 skill。把 skill 放在任意发现根（项目 `.agents/skills`、用户 `~/.agents/skills`、bundled）中，然后用 `/mode unslop` 进入。
+
+## 携带其他 skill
+
+mode skill 在 `skills:` 中列出它携带的 skill，mode 激活期间，每个成员的正文与 mode 自身的正文一同渲染：
+
+```markdown
+---
+name: poteto
+description: Router for rigorous engineering work.
+mode: true
+skills: [unslop]
+---
+```
+
+成员只展开一层：成员自身的 `skills:` 列表被忽略，因此展开由构造本身终止。重复项与自引用被丢弃。成员只需存在且可被用户调用——不要求它带 `mode: true`——无法再加载的成员会被丢弃并告警，而 mode 自身保持激活。缺少 `mode: true` 的 `skills:`、非数组的值，或不是合法 kebab-case skill 名称的成员，都会带着具名警告忽略该 skill 文件。
+
+成员关系只在此处（即 mode 渲染处）解析。成员在其他任何地方仍是普通 skill：无论携带它的 mode 是否激活，`/unslop` 都是同样的一次性注入，模型也仍通过 `skill` 工具加载它。
 
 ## 会话投影
 
@@ -79,7 +96,7 @@ Skill mode "unslop" is active in this session. Follow its instructions.
 
 #### 词元影响
 
-没有模式则不增加词元；模式活跃期间，其技能正文会加入每一次请求。模式正文按每次请求计一次长度，而非每轮一次，这正是它与「每轮把技能作为用户消息重新调用」之间的取舍。
+没有模式则不增加词元；模式活跃期间，其技能正文——以及它所携带的每个技能的正文——会加入每一次请求。模式正文按每次请求计一次长度，而非每轮一次，这正是它与「每轮把技能作为用户消息重新调用」之间的取舍。
 
 #### KV Cache 影响
 
@@ -101,7 +118,8 @@ Skill mode "unslop" is active in this session. Follow its instructions.
 
 ## 已知限制与暂缓事项
 
-- **一次只能有一个模式**——已记录状态是单个名称，因此进入某个模式会替换当前活跃的模式。叠加两个模式技能需要集合值事件与确定的正文顺序，而格式并未承诺其中任何一项。
+- **一次只能有一个模式**——已记录状态是单个名称，因此进入某个模式会替换当前活跃的模式。叠加两个模式技能需要集合值事件与确定的正文顺序，而格式并未承诺其中任何一项；携带成员的模式用一个名称表达了同一姿态。
+- **成员关系来自文件而非日志**——`skill/mode` 只记录模式名称，因此编辑模式的 `skills:` 列表会改变已记录会话的重放结果。
 - **正文不与目录去重**——即便 `tool-skill` 已在会话前缀目录中列出该技能，活跃模式仍会完整渲染其正文，因此一个模式技能的摘要与正文可能同时进入请求。
 - **模型侧无法退出**——模型无法离开它认为不适用的模式，只能拒绝套用正文并说明原因。希望由模型驱动姿态变化的部署需要另设工具。
 - **按会话而非按 Agent 树**——子 Agent 不继承父级的模式；每个会话的模式状态都是它自己的已记录量。

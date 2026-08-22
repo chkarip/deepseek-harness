@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -316,6 +316,94 @@ describe('the mode section', () => {
     expect(assembly.sections.find(section => section.name === 'skill-mode')?.text).toBe('')
   })
 
+  it('renders every member body after the mode body, in declaration order', async () => {
+    const home = await tempDir('skill-mode')
+    const root = join(home, '.agents', 'skills')
+    await writeSkill(root, 'poteto', 'Playbook router.', '# Router', { mode: true, skills: '[unslop, tdd]' })
+    await writeSkill(root, 'unslop', 'Cut AI tells.', '# Unslop body')
+    await writeSkill(root, 'tdd', 'Test first.', '# Tdd body')
+    const ctx = await setup(home)
+    const agent = await agentForCwd(home)
+    ctx.skillMode.set(agent, 'poteto')
+    await fireStep(ctx, agent)
+    const assembly = await assembleFor(ctx, agent)
+    const text = assembly.sections.find(section => section.name === 'skill-mode')?.text ?? ''
+    expect(text).toContain('Skill mode "poteto" is active in this session.')
+    expect(text.indexOf('# Router')).toBeLessThan(text.indexOf('# Unslop body'))
+    expect(text.indexOf('# Unslop body')).toBeLessThan(text.indexOf('# Tdd body'))
+    // Each member is rendered as its own loaded-skill block, exactly as the tool renders one.
+    expect(text).toContain('<skill_content name="unslop">')
+    expect(text).toContain('<skill_content name="tdd">')
+  })
+
+  it('drops a missing member with a warning and keeps the mode active', async () => {
+    const home = await tempDir('skill-mode')
+    const root = join(home, '.agents', 'skills')
+    await writeSkill(root, 'poteto', 'Playbook router.', '# Router', { mode: true, skills: '[unslop, absent]' })
+    await writeSkill(root, 'unslop', 'Cut AI tells.', '# Unslop body')
+    const ctx = await setup(home)
+    const agent = await agentForCwd(home)
+    ctx.skillMode.set(agent, 'poteto')
+    await fireStep(ctx, agent)
+    const assembly = await assembleFor(ctx, agent)
+    const text = assembly.sections.find(section => section.name === 'skill-mode')?.text ?? ''
+    expect(text).toContain('# Router')
+    expect(text).toContain('# Unslop body')
+    expect(foldSkillMode(agent.session.events)).toBe('poteto')
+  })
+
+  it('skips a duplicate member and a self-reference', async () => {
+    const home = await tempDir('skill-mode')
+    const root = join(home, '.agents', 'skills')
+    await writeSkill(root, 'poteto', 'Playbook router.', '# Router', { mode: true, skills: '[unslop, unslop, poteto]' })
+    await writeSkill(root, 'unslop', 'Cut AI tells.', '# Unslop body')
+    const ctx = await setup(home)
+    const agent = await agentForCwd(home)
+    ctx.skillMode.set(agent, 'poteto')
+    await fireStep(ctx, agent)
+    const assembly = await assembleFor(ctx, agent)
+    const text = assembly.sections.find(section => section.name === 'skill-mode')?.text ?? ''
+    expect(text.match(/# Unslop body/g)).toHaveLength(1)
+    expect(text.match(/# Router/g)).toHaveLength(1)
+  })
+
+  it('ignores a member skill of its own', async () => {
+    const home = await tempDir('skill-mode')
+    const root = join(home, '.agents', 'skills')
+    await writeSkill(root, 'poteto', 'Playbook router.', '# Router', { mode: true, skills: '[nested]' })
+    await writeSkill(root, 'nested', 'A mode that carries more.', '# Nested body', { mode: true, skills: '[deep]' })
+    await writeSkill(root, 'deep', 'Never expanded.', '# Deep body')
+    const ctx = await setup(home)
+    const agent = await agentForCwd(home)
+    ctx.skillMode.set(agent, 'poteto')
+    await fireStep(ctx, agent)
+    const assembly = await assembleFor(ctx, agent)
+    const text = assembly.sections.find(section => section.name === 'skill-mode')?.text ?? ''
+    expect(text).toContain('# Nested body')
+    expect(text).not.toContain('# Deep body')
+  })
+
+  it('re-resolves member bodies when a member skill changes', async () => {
+    const home = await tempDir('skill-mode')
+    const root = join(home, '.agents', 'skills')
+    await writeSkill(root, 'poteto', 'Playbook router.', '# Router', { mode: true, skills: '[unslop]' })
+    await writeSkill(root, 'unslop', 'Cut AI tells.', '# Unslop body')
+    const ctx = await setup(home)
+    const agent = await agentForCwd(home)
+    ctx.skillMode.set(agent, 'poteto')
+    await fireStep(ctx, agent)
+    await writeSkill(root, 'unslop', 'Cut AI tells.', '# Rewritten body')
+    ctx.emit('skills/change')
+    // The handler re-resolves without a completion signal, and a mode with
+    // members awaits one registry read per member before replacing the cache.
+    await vi.waitFor(async () => {
+      const assembly = await assembleFor(ctx, agent)
+      const text = assembly.sections.find(section => section.name === 'skill-mode')?.text ?? ''
+      expect(text).toContain('# Rewritten body')
+      expect(text).not.toContain('# Unslop body')
+    }, { timeout: 5000, interval: 25 })
+  })
+
   it('drops the mode when the skill disappears', async () => {
     const home = await tempDir('skill-mode')
     await writeSkill(join(home, '.agents', 'skills'), 'unslop', 'Cut AI tells from any writing.', TEST_BODY, { mode: true })
@@ -325,13 +413,13 @@ describe('the mode section', () => {
     await fireStep(ctx, agent)
     await import('node:fs/promises').then(fs => fs.rm(join(home, '.agents', 'skills', 'unslop'), { recursive: true, force: true }))
     ctx.emit('skills/change')
-    // The skills/change handler re-resolves asynchronously; two turns let the
-    // registry read settle before the section is assembled.
-    await new Promise(resolve => setImmediate(resolve))
-    await new Promise(resolve => setImmediate(resolve))
-    const assembly = await assembleFor(ctx, agent)
-    expect(assembly.sections.find(section => section.name === 'skill-mode')?.text).toBe('')
-    expect(foldSkillMode(agent.session.events)).toBeNull()
+    // The handler re-resolves without a completion signal, so poll the
+    // assembled section rather than counting microtask turns.
+    await vi.waitFor(async () => {
+      const assembly = await assembleFor(ctx, agent)
+      expect(assembly.sections.find(section => section.name === 'skill-mode')?.text).toBe('')
+      expect(foldSkillMode(agent.session.events)).toBeNull()
+    }, { timeout: 5000, interval: 25 })
   })
 })
 

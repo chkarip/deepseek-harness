@@ -62,6 +62,14 @@ export interface SkillSummary {
   readonly whenToUse?: string
   /** Whether the skill declares itself a sticky session mode (`mode: true` frontmatter). */
   readonly mode?: boolean
+  /**
+   * Member skills a mode skill carries (`skills:` frontmatter): their bodies
+   * render alongside the mode's own for as long as it is active. Absent or
+   * empty on every skill that is not a mode. Membership is resolved where the
+   * mode is rendered, so it changes nothing about how a member is invoked on
+   * its own.
+   */
+  readonly modeSkills?: readonly string[]
   /** Resolved model and user invocation controls. */
   readonly invocation: SkillInvocationPolicy
   /** Discovery source that produced this winning skill. */
@@ -697,6 +705,7 @@ function runtimeCandidate(skill: SkillDefinition): SkillCandidate {
     description: skill.description,
     ...skill.whenToUse !== undefined ? { whenToUse: skill.whenToUse } : {},
     ...skill.mode !== undefined ? { mode: skill.mode } : {},
+    ...skill.modeSkills !== undefined ? { modeSkills: skill.modeSkills } : {},
     invocation: skill.invocation,
     source: skill.source,
     provider: skill.provider,
@@ -728,6 +737,7 @@ function validateCandidate(candidate: SkillCandidate, providerName: string): voi
   if (candidate.mode !== undefined && typeof candidate.mode !== 'boolean') {
     throw new TypeError(`skill provider "${providerName}" returned skill "${candidate.name}" with a non-boolean mode`)
   }
+  validateModeSkills(candidate.modeSkills, `skill provider "${providerName}" returned skill "${candidate.name}"`)
   if (typeof candidate.source !== 'string') {
     throw new TypeError(`skill provider "${providerName}" returned skill "${candidate.name}" with a non-string source`)
   }
@@ -749,6 +759,7 @@ function validateRuntimeSkill(skill: SkillRegistration): void {
   if (!SKILL_NAME.test(skill.name)) throw new Error(`invalid skill name "${skill.name}"`)
   if (skill.description.length === 0) throw new Error(`skill "${skill.name}" requires a description`)
   if (skill.mode !== undefined && typeof skill.mode !== 'boolean') throw new Error(`skill "${skill.name}" mode must be a boolean`)
+  validateModeSkills(skill.modeSkills, `runtime skill "${skill.name}"`)
   validateInvocation(skill.invocation, `runtime skill "${skill.name}"`)
 }
 
@@ -770,19 +781,35 @@ function validateDefinition(skill: SkillDefinition): void {
   validateInvocation(invocation, `loaded skill "${name}"`)
   if (whenToUse !== undefined && typeof whenToUse !== 'string') throw new TypeError(`loaded skill "${name}" whenToUse must be a string`)
   if (mode !== undefined && typeof mode !== 'boolean') throw new TypeError(`loaded skill "${name}" mode must be a boolean`)
+  validateModeSkills(skill.modeSkills, `loaded skill "${name}"`)
   if (typeof source !== 'string') throw new TypeError(`loaded skill "${name}" source must be a string`)
   if (typeof provider !== 'string') throw new TypeError(`loaded skill "${name}" provider must be a string`)
   if (typeof content !== 'string') throw new TypeError(`loaded skill "${name}" content must be a string`)
   if (path !== undefined && typeof path !== 'string') throw new TypeError(`loaded skill "${name}" path must be a string`)
 }
 
+/**
+ * Validate a mode skill's declared membership list.
+ * @param value - the `modeSkills` field as supplied by a provider or caller.
+ * @param subject - sentence prefix naming the skill for the thrown message.
+ */
+function validateModeSkills(value: unknown, subject: string): void {
+  if (value === undefined) return
+  if (!Array.isArray(value)) throw new TypeError(`${subject} with a non-array modeSkills`)
+  for (const member of value) {
+    if (typeof member !== 'string') throw new TypeError(`${subject} with a non-string modeSkills entry`)
+    if (!SKILL_NAME.test(member)) throw new Error(`${subject} with an invalid modeSkills entry "${member}"`)
+  }
+}
+
 function toSummary(skill: SkillDefinition | SkillCandidate): SkillSummary {
-  const { name, description, whenToUse, mode, invocation, source, provider, resourceBase } = skill
+  const { name, description, whenToUse, mode, modeSkills, invocation, source, provider, resourceBase } = skill
   return {
     name,
     description,
     ...whenToUse !== undefined ? { whenToUse } : {},
     ...mode !== undefined ? { mode } : {},
+    ...modeSkills !== undefined ? { modeSkills } : {},
     invocation,
     source,
     provider,

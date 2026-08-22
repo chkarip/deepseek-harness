@@ -154,14 +154,23 @@ describe('TamagotchiStore', () => {
 })
 
 describe('Pixel models & sound', () => {
-  it('returns a non-empty sprite frame for every skin and state', () => {
+  it('returns a non-empty, well-formed sprite frame for every skin and state', () => {
     const states = ['idle', 'thinking', 'streaming', 'tool', 'approval', 'error', 'success'] as const
-    for (const skin of ['byte', 'kraken', 'neko'] as const) {
+    const tokens = new Set(['.', 'B', 'D', 'L', 'E', 'P', 'A', 'C', 'H', 'W', '^'])
+    for (const skin of ['byte', 'kraken', 'neko', 'ni'] as const) {
       expect(PALETTES[skin]).toBeDefined()
       for (const state of states) {
         const frame = getMascotFrame(skin, state)
         expect(frame.length).toBeGreaterThan(0)
         expect(frame[0]?.length).toBeGreaterThan(0)
+        // Rectangular frames over known palette tokens: the canvas renderer
+        // iterates rows independently, so a ragged or unknown row silently
+        // drops pixels instead of failing.
+        const width = frame[0]?.length ?? 0
+        for (const row of frame) {
+          expect(row.length).toBe(width)
+          for (const char of row) expect(tokens.has(char)).toBe(true)
+        }
       }
     }
   })
@@ -239,6 +248,9 @@ describe('ActivityMonitorView', () => {
 
     fireEvent.click(getByText(en['mascot.name.kraken']))
     expect(tamagotchiStore.getSnapshot().skin).toBe('kraken')
+
+    fireEvent.click(getByText(en['mascot.name.ni']))
+    expect(tamagotchiStore.getSnapshot().skin).toBe('ni')
   })
 })
 

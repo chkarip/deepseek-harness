@@ -3,8 +3,9 @@
  * injected business face (callbacks closed over the apply ctx).
  */
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionId, WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { SessionHandoffRelayResult, SessionHandoffRequest } from '@deepseek-ai/dsh-session-handoff/types'
 import type { PanelsKey } from './locales.ts'
 import type { createPanelsStore, PanelRecord } from './panels-store.ts'
@@ -48,9 +49,11 @@ export interface PanelsInjected {
   summarize: (panelId: string, sessionId: SessionId) => Promise<void>
   /**
    * Create a fresh conversation for a new panel (host-side session birth).
+   * @param workspaceId - explicit target Workspace; absent = the current
+   * session's Workspace, then the recent Workspace.
    * @returns the new session id.
    */
-  createSession: () => Promise<SessionId>
+  createSession: (workspaceId?: WorkspaceId) => Promise<SessionId>
   /**
    * Fork the source session into a child that SHARES its context (history
    * up to the last completed turn, cwd, model target) and optionally seeds
@@ -72,6 +75,38 @@ export interface PanelsInjected {
    * @param sessionId - the panel's session.
    */
   openWindow: (sessionId: SessionId) => void
+  /**
+   * Extract the auto-recap of a panel's last answer (goal + result) locally
+   * from the session snapshot — no model call, so no prompt is sent into the
+   * conversation. Goal = last user message, result = last assistant message.
+   * @param sessionId - the panel's session.
+   * @returns the goal/result pair, or undefined when there is no completed answer yet.
+   */
+  extractRecap: (sessionId: SessionId) => { goal: string; result: string } | undefined
+  /**
+   * Number of completed turns in a session (undefined when not addressable).
+   * The auto-recap uses it as a stable, monotonic per-turn fingerprint so a
+   * recap fires once per answer.
+   */
+  getTurnCount: (sessionId: SessionId) => number | undefined
+  /**
+   * Register a picked directory as a Host Workspace.
+   * @param input - the Host create payload.
+   * @returns the created (or idempotently resolved) Workspace.
+   */
+  createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  /**
+   * Resolve the conversation a new Workspace lands in: reuse its existing
+   * blank session when present, else mint a fresh one on the host.
+   * @param workspaceId - the Workspace to connect.
+   * @returns the reused or newly created session id.
+   */
+  connectWorkspace: (workspaceId: WorkspaceId) => Promise<SessionId>
+  /**
+   * Open the Host's native directory picker for a new Workspace.
+   * @returns the selected absolute path, or null when cancelled.
+   */
+  pickDirectory: () => Promise<string | null>
 }
 
 /** Full panels-slot props: runtime share (owner renderConversation + global hooks), store share, injected face, locale seat. */
@@ -95,4 +130,20 @@ export interface PanelHandoffInjected {
 export type PanelHandoffActionProps =
   PropsRuntime<'conversation.chat.assistant-actions'>
   & PanelHandoffInjected
+  & PropsLocale<'panels'>
+
+/** Injected business face of the sidebar session-row add-in-panel action. */
+export interface SidebarSessionActionInjected {
+  /**
+   * Create a new panel hosting the session and focus it (the panels store is
+   * persisted, so the panel survives reloads; the session becomes current).
+   * @param sessionId - the session to host in the new panel.
+   */
+  addToPanel: (sessionId: SessionId) => void
+}
+
+/** Full props of the sidebar session-row add-in-panel action (owner share + injected + locale). */
+export type SidebarAddPanelActionProps =
+  PropsRuntime<'sidebar.workspaces.session-actions'>
+  & SidebarSessionActionInjected
   & PropsLocale<'panels'>

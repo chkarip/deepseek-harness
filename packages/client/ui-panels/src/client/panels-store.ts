@@ -31,6 +31,10 @@ export interface PanelRecord {
   summary?: string | undefined
   /** Summary generation lifecycle. */
   summaryState: PanelSummaryState
+  /** Auto-recap goal of the last answer (the user's request). */
+  recapGoal?: string | undefined
+  /** Auto-recap result of the last answer (what the assistant delivered). */
+  recapResult?: string | undefined
 }
 
 /** Panels workspace state. */
@@ -55,6 +59,8 @@ export type PanelsActions = {
   setPanelSummary: (draft: PanelsState, id: string, summary: string | undefined) => void
   /** Mark a summary generation lifecycle state. */
   setSummaryState: (draft: PanelsState, id: string, state: PanelSummaryState) => void
+  /** Store the auto-extracted last-answer recap (undefined clears both). */
+  setPanelRecap: (draft: PanelsState, id: string, goal: string | undefined, result: string | undefined) => void
   /** Switch the workspace layout mode. */
   setLayout: (draft: PanelsState, layout: PanelLayoutMode) => void
   /** Focus a panel (drives the tabbed view and the active marker). */
@@ -71,7 +77,7 @@ export function createPanelsStore(): EngineStoreHandle<PanelsState, PanelsAction
     init: (): PanelsState => ({ layout: 'tiled', activePanelId: undefined, panels: [] }),
     actions: {
       addPanel: (d, id, name, sessionId) => {
-        d.panels.push({ id, name, sessionId, summary: undefined, summaryState: 'idle' })
+        d.panels.push({ id, name, sessionId, summary: undefined, summaryState: 'idle', recapGoal: undefined, recapResult: undefined })
         d.activePanelId = id
       },
       removePanel: (d, id) => {
@@ -90,9 +96,11 @@ export function createPanelsStore(): EngineStoreHandle<PanelsState, PanelsAction
         const panel = d.panels.find(candidate => candidate.id === id)
         if (panel === undefined) return
         panel.sessionId = sessionId
-        // A different conversation invalidates the previous summary.
+        // A different conversation invalidates the previous summary and recap.
         panel.summary = undefined
         panel.summaryState = 'idle'
+        panel.recapGoal = undefined
+        panel.recapResult = undefined
       },
       setPanelSummary: (d, id, summary) => {
         const panel = d.panels.find(candidate => candidate.id === id)
@@ -103,6 +111,12 @@ export function createPanelsStore(): EngineStoreHandle<PanelsState, PanelsAction
       setSummaryState: (d, id, state) => {
         const panel = d.panels.find(candidate => candidate.id === id)
         if (panel !== undefined) panel.summaryState = state
+      },
+      setPanelRecap: (d, id, goal, result) => {
+        const panel = d.panels.find(candidate => candidate.id === id)
+        if (panel === undefined) return
+        panel.recapGoal = goal
+        panel.recapResult = result
       },
       setLayout: (d, layout) => { d.layout = layout },
       focusPanel: (d, id) => { d.activePanelId = id },

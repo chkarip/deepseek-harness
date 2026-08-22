@@ -996,6 +996,26 @@ describe('user-explicit invocation injection', () => {
     expect(block.text).not.toContain('what does this do')
   })
 
+  it('injects a skill that a mode carries exactly like any other', async () => {
+    // Membership (`skills:` frontmatter) is resolved where a mode renders, not
+    // here: this boundary reads invocation policy alone, so a member stays a
+    // one-shot `/name` injection whether or not the mode carrying it is active.
+    const home = await tempDir('invoke-member')
+    const skillsRoot = join(home, '.agents', 'skills')
+    await writePolicySkill(skillsRoot, 'poteto', 'Playbook router', 'mode: true\nskills: [unslop]', 'Router body.')
+    await writePolicySkill(skillsRoot, 'unslop', 'Cut AI tells', '', 'Member instructions.')
+    const ctx = await setup(home)
+    const agent = agentForCwd(home)
+    const decision = await proposeStep(ctx, agent, [gesture('/unslop go')])
+    if (decision.kind !== 'enter') throw new Error('expected enter')
+    const injection = decision.messages.at(-1)!
+    expect(injection.source).toMatchObject({ kind: 'skill-invocation', name: 'unslop', form: 'instructions' })
+    const block = injection.content[0]
+    if (block?.type !== 'text') throw new Error('expected text injection')
+    expect(block.text).toContain('Member instructions.')
+    expect(block.text).not.toContain('Router body.')
+  })
+
   it('injects an ordinary skill the same way (one uniform user-explicit path)', async () => {
     const { ctx, agent } = await invokeHarness()
     const decision = await proposeStep(ctx, agent, [gesture('/shared-skill go')])

@@ -28,8 +28,23 @@ export const zh = {
   'panel.summary.generating': '正在生成摘要…',
   'panel.summary.error': '摘要生成失败，请重试',
   'panel.summary.empty': '该会话还没有可摘要的内容',
+  'panel.recap.title': '回顾',
+  'panel.recap.goal': '目标：',
+  'panel.recap.result': '结果：',
+  'panel.recap.generating': '正在生成回顾…',
+  'panel.recap.error': '回顾生成失败',
+  'panel.recap.empty': '该回答没有可回顾的内容',
   'panel.tabs': '面板标签',
   'summary.prompt': '用一句话概括当前会话：这个会话正在做什么、进展如何。只回复摘要本身，不要添加任何其他内容。',
+
+  // Workspace step (Add panel flow)
+  'workspace.title': '选择工作区',
+  'workspace.subtitle': '为这个面板选择已有工作区，或新建一个工作区',
+  'workspace.new': '新建工作区…',
+  'workspace.busy': '正在创建…',
+  'workspace.empty': '暂无工作区，请先新建一个',
+  'workspace.loading': '正在加载工作区…',
+  'cancel': '取消',
 
   // Fork role selector
   'fork.modal.title': '分支对话路径',
@@ -75,6 +90,9 @@ export const zh = {
   'handoff.error.generic': '发送失败，请重试',
   'handoff.error.noTarget': '请选择目标面板',
   'handoff.cancel': '取消',
+
+  // Sidebar session-row action
+  'sidebar.addToPanel': '添加到面板',
 }
 
 /** English dictionary (mirror of the zh key set). */
@@ -102,8 +120,23 @@ export const en: Record<keyof typeof zh, string> = {
   'panel.summary.generating': 'Generating summary…',
   'panel.summary.error': 'Summary failed, try again',
   'panel.summary.empty': 'This session has nothing to summarize yet',
+  'panel.recap.title': 'Recap',
+  'panel.recap.goal': 'Goal:',
+  'panel.recap.result': 'Result:',
+  'panel.recap.generating': 'Generating recap…',
+  'panel.recap.error': 'Recap failed',
+  'panel.recap.empty': 'Nothing to recap for this answer',
   'panel.tabs': 'Panel tabs',
   'summary.prompt': 'Summarize this conversation in one line: what this session is working on and its current state. Reply with the summary only, no preamble.',
+
+  // Workspace step (Add panel flow)
+  'workspace.title': 'Choose workspace',
+  'workspace.subtitle': 'Pick an existing workspace for this panel, or create a new one',
+  'workspace.new': 'New workspace…',
+  'workspace.busy': 'Creating…',
+  'workspace.empty': 'No workspaces yet — create a new one',
+  'workspace.loading': 'Loading workspaces…',
+  'cancel': 'Cancel',
 
   // Fork role selector
   'fork.modal.title': 'Branch Conversation Pathway',
@@ -149,6 +182,9 @@ export const en: Record<keyof typeof zh, string> = {
   'handoff.error.generic': 'Failed to send, try again',
   'handoff.error.noTarget': 'Please select a target panel',
   'handoff.cancel': 'Cancel',
+
+  // Sidebar session-row action
+  'sidebar.addToPanel': 'Add to panel',
 }
 
 /** Dictionary key union (zh is the source of truth). */

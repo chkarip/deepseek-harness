@@ -232,6 +232,22 @@ export interface SessionSearchItem {
   snippet: string
 }
 
+/** One fork merged into its parent by `session.mergeForks`. */
+export interface ForkMergeResult {
+  /** The merged fork session id (deleted after the merge). */
+  forkSessionId: SessionId
+  /** Number of own-work events replayed into the parent's log. */
+  appendedEvents: number
+}
+
+/** One fork `session.mergeForks` could not merge (left untouched). */
+export interface ForkMergeFailure {
+  /** The unmerged fork session id. */
+  forkSessionId: SessionId
+  /** Why the fork cannot be merged. */
+  reason: string
+}
+
 /** Session-domain unary methods (the map keys session.* of RpcMethodMap). */
 export interface SessionsApi {
   /** Lists persisted sessions (updatedAt descending). v1 returns everything; cursor is a reserved seat, unimplemented. */
@@ -340,6 +356,21 @@ export interface SessionsApi {
    */
   fork(request: RpcRequest<{ sessionId: SessionId; atSeq?: number }>):
   Promise<RpcResponse<{ sessionId: SessionId }>>
+
+  /**
+   * Merges every ordinary direct fork of `sessionId` into it and permanently
+   * deletes the merged fork sessions. Each fork's own-work events (the log
+   * after its seed boundary) are replayed into the parent's log with
+   * remapped turn numbers and seq references, preserving their original
+   * timestamps; the fork's agent is disposed, its durable log deleted, and
+   * its workspace accounting detached. The parent must be attached and not
+   * running. A fork whose own work contains a surface-replacing compaction
+   * event cannot be merged and is reported in `failed` (its log is left
+   * untouched); the mergeable forks still proceed. A request where no fork
+   * can be merged fails with `fork-unmergeable`.
+   */
+  mergeForks(request: RpcRequest<{ sessionId: SessionId }>):
+  Promise<RpcResponse<{ merged: ForkMergeResult[]; failed: ForkMergeFailure[] }>>
 
   /**
    * Sends text and temporary image bytes to an ordinary session Agent after durable host admission.

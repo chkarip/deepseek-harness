@@ -363,6 +363,54 @@ describe('FileSystemSkillProvider', () => {
     expect((await ctx.skills.list()).map(skill => skill.name)).toEqual(['good-skill'])
   })
 
+  it('parses the mode membership list a mode skill declares', async () => {
+    const home = await tempDir('skill-mode-skills')
+    const root = join(home, '.dsh/skills')
+    await mkdir(root, { recursive: true })
+    await writeFile(join(root, 'poteto.md'), [
+      '---',
+      'name: poteto',
+      'description: Playbook router',
+      'mode: true',
+      'skills: [unslop, dsh-prose-standard]',
+      '---',
+      '',
+      'Router body.',
+    ].join('\n'))
+    await writeFile(join(root, 'solo.md'), '---\nname: solo\ndescription: Solo mode\nmode: true\n---\n\nSolo.\n')
+    await writeSkill(root, 'plain-skill', 'An ordinary skill')
+
+    const ctx = await setupLocal(home)
+
+    expect(await ctx.skills.get('poteto')).toMatchObject({ mode: true, modeSkills: ['unslop', 'dsh-prose-standard'] })
+    expect((await ctx.skills.list()).find(skill => skill.name === 'poteto')?.modeSkills).toEqual(['unslop', 'dsh-prose-standard'])
+    // A mode without members and a non-mode skill both leave the field absent.
+    expect(await ctx.skills.get('solo')).toMatchObject({ mode: true })
+    expect((await ctx.skills.get('solo'))?.modeSkills).toBeUndefined()
+    expect((await ctx.skills.get('plain-skill'))?.modeSkills).toBeUndefined()
+  })
+
+  it('rejects invalid mode frontmatter without hiding valid siblings', async () => {
+    const home = await tempDir('skill-invalid-mode')
+    const root = join(home, '.dsh/skills')
+    await writeSkill(root, 'good-skill', 'Good skill')
+    const invalid = [
+      ['not-a-list', 'mode: true\nskills: unslop'],
+      ['non-string-entry', 'mode: true\nskills: [3]'],
+      ['bad-member-name', 'mode: true\nskills: [Not_Kebab]'],
+      ['members-without-mode', 'skills: [unslop]'],
+      ['members-with-mode-false', 'mode: false\nskills: [unslop]'],
+      ['bad-mode-flag', 'mode: maybe'],
+    ] as const
+    for (const [name, field] of invalid) {
+      await writeFile(join(root, `${name}.md`), `---\nname: ${name}\ndescription: ${name}\n${field}\n---\n\nBad.\n`)
+    }
+
+    const ctx = await setupLocal(home)
+
+    expect((await ctx.skills.list()).map(skill => skill.name)).toEqual(['good-skill'])
+  })
+
   it('supports CRLF frontmatter and ignores delimiter-looking text inside YAML values', async () => {
     const home = await tempDir('skill-frontmatter-crlf')
     const root = join(home, '.dsh/skills')

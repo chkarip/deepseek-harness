@@ -27,7 +27,7 @@ import type { ZodType } from 'zod'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { Session, SessionEvent, UserMessage } from '@deepseek-ai/dsh-session'
-import { isUserInvocable, renderSkillContent } from '@deepseek-ai/dsh-skill'
+import { isUserInvocable, renderSkillContent, type SkillDefinition } from '@deepseek-ai/dsh-skill'
 // Type-only edges: resolves `ctx.commands` and the `command/run`/`command/done`
 // session events for the optional command child and projection unit.
 import type { CommandId } from '@deepseek-ai/dsh-commands'
@@ -120,12 +120,13 @@ export class SkillModeController extends Service {
   private readonly pendingIntents = new WeakMap<Session, { name: string | null; narrate: boolean }>()
 
   /**
-   * Rendered mode body per session, warmed at selection time, at session
+   * Rendered mode bodies per session, warmed at selection time, at session
    * creation (resume), and on `skills/change`. The section text is synchronous,
    * so it renders from this cache; a cold cache renders nothing for one request
-   * while the boundary listener re-warms it.
+   * while the boundary listener re-warms it. `bodies` holds the mode skill's own
+   * body first, then one entry per resolved member of its `skills:` list.
    */
-  private readonly bodyCache = new WeakMap<Session, { name: string; body: string }>()
+  private readonly bodyCache = new WeakMap<Session, { name: string; bodies: readonly string[] }>()
 
   constructor(ctx: Context) {
     super(ctx, 'skillMode')
@@ -173,7 +174,7 @@ export class SkillModeController extends Service {
           '<system-reminder>',
           `Skill mode "${active}" is active in this session. Follow its instructions.`,
           '',
-          cached.body,
+          cached.bodies.join('\n\n'),
           '</system-reminder>',
         ].join('\n')
       },
@@ -296,7 +297,7 @@ export class SkillModeController extends Service {
     if (!isUserInvocable(skill)) {
       return { kind: 'error', text: `Skill "${name}" is not user-invocable and cannot become a mode.` }
     }
-    this.bodyCache.set(agent.session, { name, body: renderSkillContent(skill) })
+    this.bodyCache.set(agent.session, { name, bodies: await this.renderModeBodies(agent, skill) })
     switch (this.set(agent, name)) {
       case 'committed':
         return { kind: 'success', text: `Skill mode ${name} on. Use /mode off to leave.` }
@@ -326,7 +327,11 @@ export class SkillModeController extends Service {
     if (summaries.length === 0) {
       return { kind: 'success', text: `${header}\nNo mode skills are available in this session.` }
     }
-    const rows = summaries.map(skill => `- ${skill.name}: ${skill.description}`).join('\n')
+    const rows = summaries.map((skill) => {
+      const members = skill.modeSkills ?? []
+      const carries = members.length === 0 ? '' : ` (carries: ${members.join(', ')})`
+      return `- ${skill.name}: ${skill.description}${carries}`
+    }).join('\n')
     return { kind: 'success', text: `${header}\nAvailable mode skills:\n${rows}` }
   }
 
@@ -426,7 +431,7 @@ export class SkillModeController extends Service {
       return
     }
     if (skill !== undefined && skill.mode === true && isUserInvocable(skill)) {
-      this.bodyCache.set(session, { name, body: renderSkillContent(skill) })
+      this.bodyCache.set(session, { name, bodies: await this.renderModeBodies(agent, skill) })
       return
     }
     // The mode is dead: clear the cache and drop the logged state so the
@@ -439,6 +444,43 @@ export class SkillModeController extends Service {
         this.ctx.logger.warn('dsh-skill-mode: failed to drop unavailable mode skill "%s": %o', name, error)
       }
     }
+  }
+
+  /**
+   * Render one mode's bodies: the mode skill's own, then each member its
+   * `skills:` list declares, in declaration order.
+   *
+   * A member is resolved one level only — a member's own `modeSkills` is
+   * ignored, so expansion terminates by construction. Duplicates and a
+   * self-reference are dropped. A member that no longer loads, or that the user
+   * cannot invoke, is dropped with a warning while the mode itself stays
+   * active: one deleted member must not take the whole posture down.
+   *
+   * @param agent The agent whose workspace and scope resolve the members.
+   * @param skill The already-qualified mode skill.
+   * @returns The mode body followed by each resolved member body.
+   */
+  private async renderModeBodies(agent: Agent, skill: SkillDefinition): Promise<readonly string[]> {
+    const bodies = [renderSkillContent(skill)]
+    const lookup = { cwd: agent.session.header.cwd, scope: agent }
+    const seen = new Set([skill.name])
+    for (const member of skill.modeSkills ?? []) {
+      if (seen.has(member)) continue
+      seen.add(member)
+      let loaded
+      try {
+        loaded = await this.ctx.skills.get(member, lookup)
+      } catch (error) {
+        this.ctx.logger.warn('dsh-skill-mode: failed to load member skill "%s" of mode "%s": %o', member, skill.name, error)
+        continue
+      }
+      if (loaded === undefined || !isUserInvocable(loaded)) {
+        this.ctx.logger.warn('dsh-skill-mode: member skill "%s" of mode "%s" is unavailable and was skipped', member, skill.name)
+        continue
+      }
+      bodies.push(renderSkillContent(loaded))
+    }
+    return bodies
   }
 
   /** The live agent for a session, when this service's registry can resolve one. */

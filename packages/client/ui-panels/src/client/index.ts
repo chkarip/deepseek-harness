@@ -9,13 +9,15 @@ import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type { PanelsInjected, PanelHandoffInjected } from './contract.ts'
+import type { PanelsInjected, PanelHandoffInjected, SidebarSessionActionInjected } from './contract.ts'
 import { en, NS, zh } from './locales.ts'
 import { createPanelsStore } from './panels-store.ts'
 import { PanelHandoffAction } from './PanelHandoffAction.tsx'
 import { PanelWorkspace } from './PanelWorkspace.tsx'
-import { summarizeSession } from './summary.ts'
+import { SidebarAddPanelAction } from './SidebarAddPanelAction.tsx'
+import { completedTurnCount, extractRecap, summarizeSession } from './summary.ts'
 
 /** Services required by the panels plugin. */
 export const inject = ['slots', 'sessions', 'workspaces', 'locale', 'remote']
@@ -52,7 +54,7 @@ export function apply(ctx: ClientContext): void {
           actions.setSummaryState(panelId, 'error')
         }
       },
-      createSession: async () => {
+      createSession: async (workspaceId) => {
         // A genuinely FRESH conversation: host session.create directly — the
         // workspaces connect path would reuse the workspace's blank session
         // (the New Session flow), leaving two panels mirroring one chat.
@@ -62,10 +64,11 @@ export function apply(ctx: ClientContext): void {
         const currentWorkspace = currentSessionId === undefined
           ? undefined
           : workspacesState.items.find(item => item.sessionIds.includes(currentSessionId))
-        const workspaceId = currentWorkspace?.workspaceId
+        const targetWorkspaceId = workspaceId
+          ?? currentWorkspace?.workspaceId
           ?? workspacesState.recentWorkspaceId
           ?? workspacesState.items[0]?.workspaceId
-        return ctx.sessions.create(workspaceId === undefined ? {} : { workspaceId })
+        return ctx.sessions.create(targetWorkspaceId === undefined ? {} : { workspaceId: targetWorkspaceId })
       },
       forkSession: async (opts) => {
         const sourceSessionId = typeof opts === 'string' ? opts : opts.sourceSessionId
@@ -108,6 +111,11 @@ export function apply(ctx: ClientContext): void {
       },
       openSession: (sessionId) => { ctx.sessions.open(sessionId) },
       openWindow: (sessionId) => { ctx.sessions.openWindow(sessionId) },
+      createWorkspace: input => ctx.workspaces.create(input),
+      connectWorkspace: workspaceId => ctx.workspaces.connectWorkspace(workspaceId),
+      pickDirectory: () => ctx.workspaces.pickDirectory(),
+      extractRecap: sessionId => extractRecap(ctx.sessions, sessionId),
+      getTurnCount: sessionId => completedTurnCount(ctx.sessions, sessionId),
     }),
   }, PanelWorkspace))
 
@@ -133,5 +141,28 @@ export function apply(ctx: ClientContext): void {
         },
       }),
     }, PanelHandoffAction)
+  })
+
+  // The sidebar session-row ⋯ menu's "Add in panel" action: the same panels
+  // store the workspace registers, so a panel created here appears in the
+  // tiled/tabbed workspace immediately (and survives reloads).
+  ctx.slots.inject('sidebar.workspaces.session-actions', () => {
+    return ctx.slots.register({
+      name: 'sidebar.workspaces.session-actions',
+      id: 'add-to-panel',
+      order: 10,
+      locale: NS,
+      inject: (): SidebarSessionActionInjected => ({
+        addToPanel: (sessionId) => {
+          const id = crypto.randomUUID()
+          const panels = storeInstance.getSnapshot().panels
+          storeInstance.actions.addPanel(id, `${t('panel.defaultName')} ${panels.length + 1}`, sessionId)
+          storeInstance.actions.focusPanel(id)
+          // Selecting the session lets PanelWorkspace's external-navigation
+          // sync focus the new panel immediately.
+          ctx.sessions.open(sessionId)
+        },
+      }),
+    }, SidebarAddPanelAction)
   })
 }

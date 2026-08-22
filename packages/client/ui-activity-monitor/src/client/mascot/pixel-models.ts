@@ -1,5 +1,6 @@
 /**
- * Pixel art matrix models for Byte (Robot), Kraken (Squid), and Neko (Cyber Cat).
+ * Pixel art matrix models for Byte (Robot), Kraken (Squid), Neko (Cyber Cat),
+ * and Ni (Star Dragon).
  * Matrices are indexed [y][x] with color token characters:
  * '.' = transparent
  * 'B' = primary body color
@@ -64,6 +65,17 @@ export const PALETTES: Record<MascotSkin, PixelPalette> = {
     accent: '#ff006e',
     tool: '#ffbe0b',
     heart: '#ff006e',
+    white: '#ffffff',
+  },
+  ni: {
+    primary: '#ffb347',
+    dark: '#c96a1f',
+    light: '#ffe0a3',
+    eye: '#3ee6c4',
+    pupil: '#0f4a3c',
+    accent: '#7c6cff',
+    tool: '#ff4d6d',
+    heart: '#ff6b9d',
     white: '#ffffff',
   },
 }
@@ -456,6 +468,135 @@ const NEKO_FRAMES: Record<MascotState, string[]> = {
   ],
 }
 
+const NI_FRAMES: Record<MascotState, string[]> = {
+  idle: [
+    '...A....A...',
+    '..DD....DD..',
+    '...DBBBBD...',
+    '..DBBBBBBD..',
+    '.DBEEEEEEBD.',
+    '.DBEPEEPEBD.',
+    '.DBEEEEEEBD.',
+    '..DBBBBBBD..',
+    '...DBBBBD...',
+    '..DBBBBBBD..',
+    'ADBBBBBBBBDA',
+    'ABBBBBBBBBBA',
+    '..DBLLLLBD..',
+    '...DBBBBD...',
+    '..DDB..BDD..',
+    '..DDD..DDD..',
+  ],
+  thinking: [
+    '....WWWW....',
+    '...WAAAAW...',
+    '....AAAA....',
+    '..DD....DD..',
+    '...DBBBBD...',
+    '..DBBBBBBD..',
+    '.DBEEEEEEBD.',
+    '.DBE.EE.EBD.',
+    '.DBEEEEEEBD.',
+    '..DBBBBBBD..',
+    '...DBBBBD...',
+    'ADBBBBBBBBDA',
+    'ABBBBBBBBBBA',
+    '..DBLLLLBD..',
+    '..DDB..BDD..',
+    '..DDD..DDD..',
+  ],
+  streaming: [
+    '..DD....DD..',
+    '...DBBBBD...',
+    '..DBBBBBBD..',
+    '.DBEEEEEEBD.',
+    '.DBEPEEPEBD.',
+    '.DBEEEEEEBD.',
+    '..DBBBBBBD..',
+    '.DBWWWWWWBD.',
+    '..DBBBBBBD..',
+    'ADBBBBBBBBDA',
+    'ABBBBBBBBBBA',
+    '..DBLLLLBD..',
+    'WCCCCCCCCW..',
+    '..DDB..BDD..',
+    '..DDD..DDD..',
+    '............',
+  ],
+  tool: [
+    '..CCCCCCCC..',
+    '..CCCCCCCC..',
+    '....DDDD....',
+    '...DBBBBD...',
+    '..DBBBBBBD..',
+    '.DBWEEEEWBD.',
+    '.DBEPEEPEBD.',
+    '.DBWEEEEWBD.',
+    '..DBBBBBBD..',
+    '...DBBBBD...',
+    'ADBBBBBBBBDA',
+    'ABBBBBBBBBBA',
+    '..DBLLLLBD..',
+    '..DDB..BDD..',
+    '..DDD..DDD..',
+    '............',
+  ],
+  approval: [
+    '...A....A...',
+    '...HH..HH...',
+    '..DD....DD..',
+    '...DBBBBD...',
+    '..DBBBBBBD..',
+    '.DBEEEEEEBD.',
+    '.DBEPEEPEBD.',
+    '.DBEEEEEEBD.',
+    '..DBBBBBBD..',
+    '...DBBBBD...',
+    'ADBBBBBBBBDA',
+    'ABBBBBBBBBBA',
+    '..DBLLLLBD..',
+    '..DDB..BDD..',
+    '..DDD..DDD..',
+    '............',
+  ],
+  error: [
+    '....DDDD....',
+    '...DBBBBD...',
+    '..DBBBBBBD..',
+    '.DBE....EBD.',
+    '.DBE....EBD.',
+    '.DBE..L.EBD.',
+    '..DBBBBBBD..',
+    '..DB....BD..',
+    '...DBBBBD...',
+    '..DBBBBBBD..',
+    'ADBBBBBBBBDA',
+    'ABBBBBBBBBBA',
+    '..DBLLLLBD..',
+    '..DDD..DDD..',
+    '............',
+    '............',
+  ],
+  success: [
+    '...A....A...',
+    '..A......A..',
+    '..DD....DD..',
+    '...DBBBBD...',
+    '..DBBBBBBD..',
+    '.DBE^^^^EBD.',
+    '.DBE^^^^EBD.',
+    '.DBWWWWWWBD.',
+    '..DBBBBBBD..',
+    '...DBBBBD...',
+    'ADBBBBBBBBDA',
+    'ABBBBBBBBBBA',
+    '..DBLLLLBD..',
+    '..DDB..BDD..',
+    '..DDD..DDD..',
+    '............',
+  ],
+}
+
 /**
  * The sprite rows for one skin in one state.
  * @param skin - the selected mascot skin.
@@ -466,6 +607,7 @@ export function getMascotFrame(skin: MascotSkin, state: MascotState): string[] {
   switch (skin) {
     case 'kraken': return KRAKEN_FRAMES[state]
     case 'neko': return NEKO_FRAMES[state]
+    case 'ni': return NI_FRAMES[state]
     case 'byte': return BYTE_FRAMES[state]
   }
 }

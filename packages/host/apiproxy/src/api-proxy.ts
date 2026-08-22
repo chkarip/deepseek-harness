@@ -17,7 +17,7 @@ import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { createUserMessage, freezeMessage, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import { errorChain } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, MessageSource } from '@deepseek-ai/dsh-llm'
-import { isAppendSurfaceEvent, isJsonValue } from '@deepseek-ai/dsh-session'
+import { isAppendSurfaceEvent, isJsonValue, isSurfaceEligibleType, lastTurnOf, planForkMerge } from '@deepseek-ai/dsh-session'
 import type { JsonValue, Session, SessionEvent, SessionEventMap, SessionHeader, SessionId, UserMessage } from '@deepseek-ai/dsh-session'
 import type { SessionPersistence } from '@deepseek-ai/dsh-session-persistence'
 import { SessionQueryError, type SessionSearchCursor } from '@deepseek-ai/dsh-session-query'
@@ -37,7 +37,7 @@ import {
 import type { PresetBearingSession } from '@deepseek-ai/dsh-agent-presets'
 import type {} from '@deepseek-ai/dsh-tools'
 import type {
-  ApiProxy, ConfigurableProviderView, CredentialView, GoalRef, HistoryEntry, HostFrame,
+  ApiProxy, ConfigurableProviderView, CredentialView, ForkMergeFailure, ForkMergeResult, GoalRef, HistoryEntry, HostFrame,
   ModelCatalogFailure, ModelProviderGroup,
   ModelReasoning, MuxFrame, PromptContentPart, QuestionResponsePayload, SessionListMetadata, SessionProjectionsBlock, SessionSearchItem,
   QueuedInboxItem, SessionSummary, SettingsNamespaceView, SubagentAddress, JobView, ToolEventView,
@@ -2358,6 +2358,113 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         return ok(request, { sessionId: childId })
       },
 
+      async mergeForks(request) {
+        const { sessionId } = request.payload
+        const found = await agentFor(sessionId)
+        if ('error' in found) return err(request, found.error)
+        const parent = found.agent.session
+        if (found.agent.status === 'running') {
+          return err(request, {
+            code: 'session-busy',
+            message: `cannot merge forks of session "${sessionId}": the session is still running`,
+            details: { sessionId },
+          })
+        }
+        // Direct ordinary fork children — live store plus persisted headers,
+        // deduplicated (an attached fork appears in both). Subagent children
+        // are a different lineage axis and are never merged.
+        const persistence = ctx.get('sessionPersistence')
+        const candidateHeaders: SessionHeader[] = [
+          ...ctx.sessions.list().map(session => session.header),
+          ...(persistence === undefined ? [] : await persistence.list()),
+        ]
+        const seen = new Set<SessionId>()
+        const children: SessionReadState[] = []
+        for (const header of candidateHeaders) {
+          if (seen.has(header.id)) continue
+          seen.add(header.id)
+          if (header.parentSession !== sessionId || header.origin === 'subagent') continue
+          children.push(await readSessionState(header.id))
+        }
+        if (children.length === 0) {
+          return err(request, {
+            code: 'no-forks',
+            message: `session "${sessionId}" has no forks to merge`,
+            details: { sessionId },
+          })
+        }
+        const merged: ForkMergeResult[] = []
+        const failed: ForkMergeFailure[] = []
+        for (const child of children) {
+          const planned = planForkMerge(
+            { length: parent.events.length, lastTurn: lastTurnOf(parent.events) },
+            child.events,
+            child.header,
+          )
+          if (!planned.ok) {
+            failed.push({ forkSessionId: child.id, reason: planned.rejection.reason })
+            continue
+          }
+          // The own-work citation offset is the parent's length BEFORE this
+          // fork's appends; the plan expressed own-work citations relative to
+          // its first event, and seed citations stay as-is (they name parent
+          // seqs unchanged by the append-only log). The loop below is
+          // synchronous, so the offset stays exact.
+          const parentLengthBefore = parent.events.length
+          let appendedEvents = 0
+          for (const event of planned.plan.events) {
+            const sourceEventSeqs = event.sourceEventSeqs === undefined
+              ? undefined
+              : event.sourceEventSeqs.map(relative => relative >= 0
+                ? parentLengthBefore + relative
+                : relative)
+            if (isSurfaceEligibleType(event.type)) {
+              parent.append(
+                event.type,
+                event.data as never,
+                {
+                  surfaceOp: 'append',
+                  ...(sourceEventSeqs === undefined ? {} : { sourceEventSeqs }),
+                },
+                event.time,
+              )
+            } else {
+              parent.append(event.type, event.data as never, event.time)
+            }
+            appendedEvents += 1
+          }
+          // An attached fork keeps its agent machine alive; its flushes would
+          // recreate the artifact deleted below, so dispose it first (the
+          // snapshot above was taken from the live log before disposal).
+          if (ctx.sessions.get(child.id) !== undefined) {
+            await ctx.agents.dispose(child.id)
+          }
+          merged.push({ forkSessionId: child.id, appendedEvents })
+        }
+        if (merged.length === 0) {
+          return err(request, {
+            code: 'fork-unmergeable',
+            message: `none of the forks of session "${sessionId}" could be merged`,
+            details: { sessionId, failed },
+          })
+        }
+        // Durability barrier: the parent's replayed events must reach storage
+        // before the fork artifacts are removed.
+        await ctx.sessions.flush(parent)
+        const registry = ctx.workspaceRegistry
+        for (const result of merged) {
+          if (persistence !== undefined) {
+            await persistence.delete(result.forkSessionId)
+          }
+          const workspace = registry.list()
+            .find(candidate => candidate.sessionIds.includes(result.forkSessionId))
+          if (workspace !== undefined) {
+            await workspace.detachSession(result.forkSessionId)
+          }
+        }
+        return ok(request, { merged, failed })
+      },
+
       async prompt(request) {
         const { sessionId, mode, content, clientTimeZone } = request.payload
         const canonicalTimeZone = clientTimeZone === undefined
@@ -3151,6 +3258,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
               ...skill.whenToUse === undefined ? {} : { whenToUse: skill.whenToUse },
               modelInvocable: skill.invocation.modelInvocable,
               mode: skill.mode === true,
+              modeSkills: skill.modeSkills ?? [],
             })),
           })
         } catch (error: unknown) {

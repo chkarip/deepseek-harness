@@ -10,7 +10,10 @@
  *
  * Options come from the `skills.list` RPC (the same catalog the '/' skill
  * source and the model catalog read), filtered to `mode === true`. Rows carry
- * the skill description as detail so filtering matches both name and text.
+ * the skill description as detail so filtering matches both name and text,
+ * followed by the member skills a mode carries so a search for a member finds
+ * the mode that carries it. The row for the session's current mode is marked
+ * active, read from the `skill-mode` projection.
  * A session with no mode skills opens a shell that reports the empty state
  * instead of a bare claim line.
  *
@@ -20,7 +23,9 @@
  */
 // Type-only: the carrier types, the forwarded Host-event face and the ctx.remote merge.
 import type { ConnectionHandle, SessionId, SkillEntry } from '@deepseek-ai/dsh-api-remotes/client'
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ClientContext, SessionFace } from '@deepseek-ai/dsh-client-runtime/client'
+// Type-only: the skill-mode projection value served on the session's projection face.
+import type { SkillModeProjection } from '@deepseek-ai/dsh-skill-mode/client'
 import type { CommandUiContract, SelectOption } from '@deepseek-ai/dsh-client-ui-commands/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
@@ -39,8 +44,21 @@ interface ModeFetch {
   readonly abort: AbortController
 }
 
-/** Required services: the command decoration registry, the skills RPC, and the command channel. */
-export const inject = ['commandUi', 'connection', 'locale', 'remote', 'remote.commands']
+/** Required services: the command decoration registry, the skills RPC, the session faces, and the command channel. */
+export const inject = ['commandUi', 'connection', 'locale', 'remote', 'remote.commands', 'sessions']
+
+/** The mode a session currently runs, from its `skill-mode` projection (undefined = capability absent). */
+function activeModeOf(session: SessionFace | undefined): string | null | undefined {
+  const value = session?.projections.faceOf('skill-mode').getSnapshot() as SkillModeProjection | undefined
+  return value?.name
+}
+
+/** Row detail: the description, plus the member skills a mode carries so search matches both. */
+function detailOf(skill: SkillEntry): string {
+  return skill.modeSkills.length === 0
+    ? skill.description
+    : `${skill.description} · carries: ${skill.modeSkills.join(', ')}`
+}
 
 /**
  * Client plugin body: register the /mode popupSelect decoration and its dictionaries.
@@ -51,6 +69,7 @@ export function apply(ctx: ClientContext): void {
 
   const command = ctx.get('commandUi') as CommandUiContract
   const skills = (ctx.get('connection') as ConnectionHandle).api.skills
+  const sessions = ctx.sessions
 
   // Session-keyed mode fetch; single-flight per key. Plugin-closure state:
   // the fiber effect below is its teardown boundary.
@@ -84,10 +103,12 @@ export function apply(ctx: ClientContext): void {
       kind: 'popupSelect',
       options: async (session, signal) => {
         const modes = await fetchModes(session.sessionId, signal)
+        const active = activeModeOf(sessions.binding(session.sessionId)?.session)
         const options: SelectOption[] = modes.map(skill => ({
           id: skill.name,
           label: skill.name,
-          detail: skill.description,
+          detail: detailOf(skill),
+          ...(skill.name === active ? { active: true } : {}),
         }))
         return options
       },
