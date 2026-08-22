@@ -39,6 +39,11 @@ export interface LiveTelemetry {
   mascotState: MascotState
   /** Estimated tokens per second over the latest interval; 0 while not streaming. */
   estimatedSpeed: number
+  /**
+   * Estimated tokens decoded across the current request, accumulated over its
+   * steps and held after it settles until the next one starts.
+   */
+  turnTokens: number
   /** Highest {@link estimatedSpeed} observed since this hook mounted. */
   peakSpeed: number
   /** Mean {@link estimatedSpeed} across the non-zero samples still in the window. */
@@ -54,6 +59,7 @@ export interface LiveTelemetry {
 const IDLE: LiveTelemetry = {
   mascotState: 'idle',
   estimatedSpeed: 0,
+  turnTokens: 0,
   peakSpeed: 0,
   avgSpeed: 0,
   currentStage: 'idle',
@@ -108,17 +114,25 @@ export function useLiveTelemetry(snapshot: ConversationSnapshot | undefined): Li
   const peakRef = useRef(0)
   const lastTokensRef = useRef(0)
   const lastSampleAtRef = useRef(Date.now())
+  const turnTokensRef = useRef(0)
+  const wasRunningRef = useRef(false)
 
   useEffect(() => {
     if (snapshot === undefined) {
       historyRef.current = []
       peakRef.current = 0
       lastTokensRef.current = 0
+      turnTokensRef.current = 0
+      wasRunningRef.current = false
       setTelemetry(IDLE)
       return
     }
 
     const stage = readStage(snapshot)
+    // A request's total counts from its own start, so the settled figure stays
+    // readable until the next request replaces it.
+    if (snapshot.running && !wasRunningRef.current) turnTokensRef.current = 0
+    wasRunningRef.current = snapshot.running
     const now = Date.now()
     // A floor on the interval keeps two snapshots in the same millisecond from
     // reporting an unbounded rate.
@@ -129,6 +143,8 @@ export function useLiveTelemetry(snapshot: ConversationSnapshot | undefined): Li
     const deltaTokens = Math.max(0, tokens - lastTokensRef.current)
     // A finished turn clears the baseline so the next message counts from zero.
     lastTokensRef.current = snapshot.running ? tokens : 0
+
+    if (snapshot.running) turnTokensRef.current += deltaTokens
 
     let speed = 0
     if (snapshot.running && stage.currentStage === 'streaming' && deltaTokens > 0) {
@@ -149,6 +165,7 @@ export function useLiveTelemetry(snapshot: ConversationSnapshot | undefined): Li
     setTelemetry({
       ...stage,
       estimatedSpeed: speed,
+      turnTokens: turnTokensRef.current,
       peakSpeed: peakRef.current,
       avgSpeed,
       speedHistory: history,

@@ -1,6 +1,11 @@
 /**
- * Session header utility pill: compact live mascot avatar plus a throughput
- * badge, expanding into the mascot playground and telemetry panel.
+ * Session header utility pill: compact live mascot avatar plus the current
+ * request's estimated token total, expanding into the mascot playground and
+ * telemetry panel.
+ *
+ * This is the mascot's ONE always-mounted surface, so it is also the ONE mount
+ * that sounds the turn-completion cue: the view tab renders the same mascot,
+ * and every mount that asked for the cue would sound its own.
  */
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
@@ -12,8 +17,19 @@ import { PixelMascotCanvas } from './mascot/PixelMascotCanvas.tsx'
 import { tamagotchiStore, type MascotSkin } from './mascot/tamagotchi-store.ts'
 import { ActivityPipelineView } from './telemetry/ActivityPipelineView.tsx'
 import { LiveTokenGraph } from './telemetry/LiveTokenGraph.tsx'
-import { useLiveTelemetry } from './telemetry/telemetry-state.ts'
+import { useCompletionCue, useLiveTelemetry } from './telemetry/telemetry-state.ts'
 import css from './ActivityHeaderPill.module.css'
+
+/** Threshold above which the pill abbreviates the token total to thousands. */
+const COMPACT_TOKENS_FROM = 10_000
+
+/**
+ * @param tokens - estimated token count.
+ * @returns the count for the pill's fixed width: exact below {@link COMPACT_TOKENS_FROM}, otherwise thousands.
+ */
+function formatTokens(tokens: number): string {
+  return tokens < COMPACT_TOKENS_FROM ? String(tokens) : `${Math.round(tokens / 1000)}k`
+}
 
 /** The skins offered by the picker, in display order. */
 const SKINS: readonly MascotSkin[] = ['byte', 'kraken', 'neko']
@@ -35,7 +51,9 @@ export function ActivityHeaderPill({ useSession, useProjection, t }: ActivityHea
   const snapshot = useSession(s => s)
   const telemetry = useLiveTelemetry(snapshot)
   const { skin, happiness, coffees, pets, tokensFed, soundEnabled } = petState
-  const { mascotState, estimatedSpeed, peakSpeed, avgSpeed, speedHistory } = telemetry
+  const { mascotState, estimatedSpeed, turnTokens, peakSpeed, avgSpeed, speedHistory } = telemetry
+
+  useCompletionCue(telemetry.currentStage)
 
   useEffect(() => {
     if (!modalOpen) return
@@ -69,8 +87,8 @@ export function ActivityHeaderPill({ useSession, useProjection, t }: ActivityHea
         onClick={() => { setModalOpen(open => !open) }}
       >
         <PixelMascotCanvas skin={skin} state={mascotState} scale={1.8} interactive={false} />
-        {estimatedSpeed > 0 ? (
-          <span className={css.speedText}>{t('header.pill.speed', { speed: estimatedSpeed })}</span>
+        {turnTokens > 0 ? (
+          <span className={css.tokenText}>{t('header.pill.tokens', { tokens: formatTokens(turnTokens) })}</span>
         ) : (
           <span className={css.idleText}>{happiness}%</span>
         )}

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * ui-activity-monitor suite: plugin registration and disposal, the mascot
- * store's stats and persistence, snapshot-derived telemetry, and the three
+ * store's stats and persistence, snapshot-derived telemetry, and the two
  * rendered surfaces — including that their copy comes from the dictionaries
  * rather than inline English.
  */
@@ -13,9 +13,8 @@ import { SlotRegistry, type ConversationSnapshot, type SessionId, type UseProjec
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { conversationSnapshot, stubSettingsScope, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply as applyLocale, inject as localeInject } from '@deepseek-ai/dsh-client-locale/client'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import {
-  apply, inject, ActivityHeaderPill, ActivityMonitorView, MascotDock, PixelMascotCanvas, tamagotchiStore,
+  apply, inject, ActivityHeaderPill, ActivityMonitorView, PixelMascotCanvas, tamagotchiStore,
 } from '../src/client/index.ts'
 import { ActivityPipelineView } from '../src/client/telemetry/ActivityPipelineView.tsx'
 import { playRetroSound } from '../src/client/audio/retro-synth.ts'
@@ -59,7 +58,6 @@ async function bench(): Promise<{ ctx: Context; fiber: ReturnType<Context['plugi
     name: 'root',
     children: {
       'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
-      'conversation.input.dock': { kind: 'list', scope: 'session' },
       'conversation.view': { kind: 'list', scope: 'session' },
     },
   } as never, () => null)
@@ -80,19 +78,17 @@ describe('ui-activity-monitor browser plugin', () => {
     expect(inject).toEqual(['slots', 'sessions', 'locale'])
   })
 
-  it('registers the header pill, mascot dock, and view tab, and removes them on fiber disposal', async () => {
+  it('registers the header pill and view tab, and removes them on fiber disposal', async () => {
     const { ctx, fiber } = await bench()
 
     expect(ctx.slots.entries('conversation.session.header.utilities').map(e => e.options.id))
       .toContain('activity-monitor-pill')
-    expect(ctx.slots.entries('conversation.input.dock').map(e => e.options.id)).toContain('mascot-dock')
     expect(ctx.slots.entries('conversation.view').map(e => e.options.id)).toContain('activity')
 
     await fiber.dispose()
 
     expect(ctx.slots.entries('conversation.session.header.utilities').map(e => e.options.id))
       .not.toContain('activity-monitor-pill')
-    expect(ctx.slots.entries('conversation.input.dock').map(e => e.options.id)).not.toContain('mascot-dock')
     expect(ctx.slots.entries('conversation.view').map(e => e.options.id)).not.toContain('activity')
   })
 
@@ -113,7 +109,7 @@ describe('TamagotchiStore', () => {
     const off = tamagotchiStore.subscribe(() => { notifications += 1 })
 
     expect(tamagotchiStore.getSnapshot()).toMatchObject({
-      skin: 'byte', happiness: 80, coffees: 0, pets: 0, tokensFed: 0, soundEnabled: false, dockCollapsed: false,
+      skin: 'byte', happiness: 80, coffees: 0, pets: 0, tokensFed: 0, soundEnabled: false,
     })
 
     expect(tamagotchiStore.pet()).toBe(88)
@@ -135,7 +131,7 @@ describe('TamagotchiStore', () => {
     expect(notifications).toBe(3)
   })
 
-  it('applies skin, sound, and collapse preferences idempotently', () => {
+  it('applies skin and sound preferences idempotently', () => {
     tamagotchiStore.setSkin('kraken')
     expect(tamagotchiStore.getSnapshot().skin).toBe('kraken')
     const before = tamagotchiStore.getSnapshot()
@@ -144,12 +140,6 @@ describe('TamagotchiStore', () => {
 
     expect(tamagotchiStore.toggleSound()).toBe(true)
     expect(tamagotchiStore.toggleSound()).toBe(false)
-
-    tamagotchiStore.setDockCollapsed(true)
-    expect(tamagotchiStore.getSnapshot().dockCollapsed).toBe(true)
-    const collapsed = tamagotchiStore.getSnapshot()
-    tamagotchiStore.setDockCollapsed(true)
-    expect(tamagotchiStore.getSnapshot()).toBe(collapsed)
   })
 
   it('persists to localStorage and reloads the persisted values', () => {
@@ -186,37 +176,6 @@ describe('Pixel models & sound', () => {
   })
 })
 
-describe('MascotDock', () => {
-  it('renders dictionary copy, not inline English, and feeds coffee on click', () => {
-    const t = makeTranslate(zh, commonZh)
-    const { getByTitle, queryByText } = render(
-      <MascotDock useSession={sessionHook(snapshotWith())} t={t} />,
-    )
-
-    expect(queryByText(/\+Coffee/)).toBeNull()
-    const coffeeBtn = getByTitle(zh['mascot.action.coffee'])
-    fireEvent.click(coffeeBtn)
-    expect(tamagotchiStore.getSnapshot().coffees).toBe(1)
-  })
-
-  it('reports the streaming state and estimated rate while a partial streams', () => {
-    const t = makeTranslate(en, {})
-    const streaming = snapshotWith({
-      running: true,
-      partial: { turn: 1, step: 1, blocks: [{ kind: 'text', text: 'x'.repeat(3800) }] } as never,
-    })
-    const { getByText } = render(<MascotDock useSession={sessionHook(streaming)} t={t} />)
-    expect(getByText(en['mascot.state.streaming'])).toBeTruthy()
-  })
-
-  it('collapses to the compact bar when the preference is set', () => {
-    tamagotchiStore.setDockCollapsed(true)
-    const t = makeTranslate(en, {})
-    const { getByTitle } = render(<MascotDock useSession={sessionHook(snapshotWith())} t={t} />)
-    expect(getByTitle(en['dock.expand'])).toBeTruthy()
-  })
-})
-
 describe('PixelMascotCanvas', () => {
   it('renders a canvas and reports a pet gesture', () => {
     const onPet = vi.fn()
@@ -245,6 +204,23 @@ describe('ActivityHeaderPill', () => {
     fireEvent.click(getByLabelText(en['header.pill.close']))
     expect(queryByLabelText(en['header.pill.close'])).toBeNull()
   })
+
+  it('shows happiness when idle and the request token total while one runs', () => {
+    const t = makeTranslate(en, {})
+    const { container: idle } = render(
+      <ActivityHeaderPill useSession={sessionHook(snapshotWith())} useProjection={projectionHook()} t={t} />,
+    )
+    expect(idle.textContent).toContain('80%')
+
+    const streaming = snapshotWith({
+      running: true,
+      partial: { turn: 1, step: 1, blocks: [{ kind: 'text', text: 'x'.repeat(3800) }] } as never,
+    })
+    const { container } = render(
+      <ActivityHeaderPill useSession={sessionHook(streaming)} useProjection={projectionHook()} t={t} />,
+    )
+    expect(container.textContent).toContain('1000 tok')
+  })
 })
 
 describe('ActivityMonitorView', () => {
@@ -268,7 +244,7 @@ describe('ActivityMonitorView', () => {
 
 describe('ActivityPipelineView', () => {
   const telemetry = {
-    mascotState: 'idle', estimatedSpeed: 0, peakSpeed: 0, avgSpeed: 0,
+    mascotState: 'idle', estimatedSpeed: 0, turnTokens: 0, peakSpeed: 0, avgSpeed: 0,
     currentStage: 'idle', runningToolName: null, speedHistory: [],
   } as const
 

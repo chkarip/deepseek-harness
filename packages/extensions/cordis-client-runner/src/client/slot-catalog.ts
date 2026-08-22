@@ -685,7 +685,6 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     slotInject: '',
     declaredBy: 'an entry in \'conversation\' (client-ui-conversation), so it exists while that entry is mounted',
     occupants: [
-      'client-ui-activity-monitor MascotDock id \'mascot-dock\'',
       'client-ui-conversation QueueDock id \'queue\'',
       'client-ui-conversation TodoDock id \'todo\'',
       'client-ui-goal GoalDock id \'goal\'',
@@ -1225,7 +1224,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     doc: 'The whole center column surface, across both the no-session hero and\none or more live conversations. OCCUPIED by ui-panels\' PanelWorkspace,\nwhich hosts a named multi-panel chat workspace (tiled or tabbed, each\npanel bound to its own session) and declares the conversation seats it\nneeds inside it — registering here replaces the entire center surface\n(and removes every seat it declares) rather than adding to it.\n\nThe owner hands down the frame\'s own bound \'conversation\' renderer so\nthe panels surface can host one full conversation per panel without\nre-declaring the conversation slot; when no occupant is registered the\nframe falls back to a single current-session conversation, preserving\nthe pre-panels center column exactly.',
     registerOptions: [],
     ownerProps: [
-      '/** Panels owner share: the frame\'s own bound conversation renderer, handed down so the panels surface hosts one full conversation per panel without re-declaring the slot. */\nexport interface PanelsOwnerProps {\n  /**\n   * Render the conversation surface bound to a specific session (the\n   * multi-pane seat). The frame owns the \'conversation\' declaration and\n   * delegates its bound renderSlot here; an omitted id renders the\n   * conversation bound to the ambient current session (the frame\'s own\n   * fallback behavior).\n   * @param sessionId - the session to bind the conversation to, or undefined for the ambient current session.\n   * @returns the rendered conversation surface.\n   */\n  renderConversation: (sessionId?: SessionId) => ReactNode\n}',
+      '/**\n * Panels owner share: the frame\'s own bound conversation renderer, handed down\n * so the panels surface hosts one full conversation per panel without\n * re-declaring the slot.\n */\nexport interface PanelsOwnerProps {\n  /**\n   * Render the conversation surface bound to a specific session (the\n   * multi-pane seat). The frame owns the \'conversation\' declaration and\n   * delegates its bound renderSlot here; an omitted id renders the\n   * conversation bound to the ambient current session (the frame\'s own\n   * fallback behavior).\n   * @param sessionId - the session to bind the conversation to, or undefined for the ambient current session.\n   * @returns the rendered conversation surface.\n   */\n  renderConversation: (sessionId?: SessionId) => ReactNode\n}',
     ],
     ownerPropsReferences: [
       'SessionId',

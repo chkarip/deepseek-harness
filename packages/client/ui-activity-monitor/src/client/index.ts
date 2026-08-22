@@ -2,7 +2,6 @@
  * Activity Monitor & Tamagotchi Mascot plugin, browser half.
  * Registers:
  * - Header pill in 'conversation.session.header.utilities'
- * - Mascot dock in 'conversation.input.dock'
  * - Activity view in 'conversation.view'
  */
 
@@ -14,11 +13,9 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { ActivityHeaderPill } from './ActivityHeaderPill.tsx'
 import { ActivityMonitorView } from './ActivityMonitorView.tsx'
 import { en, NS, zh, type ActivityMonitorKey } from './locales.ts'
-import { MascotDock } from './mascot/MascotDock.tsx'
 
 export { ActivityHeaderPill } from './ActivityHeaderPill.tsx'
 export { ActivityMonitorView } from './ActivityMonitorView.tsx'
-export { MascotDock } from './mascot/MascotDock.tsx'
 export { PixelMascotCanvas } from './mascot/PixelMascotCanvas.tsx'
 export { LiveTokenGraph } from './telemetry/LiveTokenGraph.tsx'
 export { ActivityPipelineView } from './telemetry/ActivityPipelineView.tsx'
@@ -38,7 +35,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 export const inject = ['slots', 'sessions', 'locale']
 
 /**
- * Client plugin body: register header pill, mascot dock, and activity view.
+ * Client plugin body: register the header pill and the activity view.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
@@ -54,15 +51,7 @@ export function apply(ctx: ClientContext): void {
     locale: NS,
   }, ActivityHeaderPill))
 
-  // 2. Input dock mascot bar
-  ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
-    name: 'conversation.input.dock',
-    id: 'mascot-dock',
-    order: 5,
-    locale: NS,
-  }, MascotDock))
-
-  // 3. Dedicated Activity & Mascot view tab
+  // 2. Dedicated Activity & Mascot view tab
   ctx.slots.inject('conversation.view', () => ctx.slots.register({
     name: 'conversation.view',
     id: 'activity',

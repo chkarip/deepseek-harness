@@ -1,6 +1,6 @@
 /**
  * Tamagotchi store: mascot stats and browser-local user preferences (skin,
- * sound, dock collapse), persisted to `localStorage`.
+ * sound), persisted to `localStorage`.
  *
  * Deliberately a module-level singleton, not a plugin-owned service: every
  * value here is per-browser user preference that must survive plugin
@@ -18,7 +18,6 @@ export interface TamagotchiState {
   pets: number
   tokensFed: number
   soundEnabled: boolean
-  dockCollapsed: boolean
 }
 
 const STORAGE_KEY = 'dsh:activity-monitor:tamagotchi'
@@ -38,7 +37,6 @@ const DEFAULT_STATE: TamagotchiState = {
   pets: 0,
   tokensFed: 0,
   soundEnabled: false,
-  dockCollapsed: false,
 }
 
 /** @returns the storage face, or undefined where the environment has none. */
@@ -193,16 +191,6 @@ export class TamagotchiStore {
     this.state = { ...this.state, soundEnabled: next }
     this.notify()
     return next
-  }
-
-  /**
-   * Collapse or expand the composer dock.
-   * @param dockCollapsed - whether the dock shows its compact bar.
-   */
-  public setDockCollapsed = (dockCollapsed: boolean): void => {
-    if (this.state.dockCollapsed === dockCollapsed) return
-    this.state = { ...this.state, dockCollapsed }
-    this.notify()
   }
 
   /** Publish the new state to listeners and schedule a throttled write. */
